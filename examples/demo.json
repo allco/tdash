@@ -77,7 +77,7 @@
           },
           {
             "type": "markdown", "title": "Notes",
-            "data": { "inline": "Deploy at **17:00** · {black on yellow} freeze {/} after that\n- `tab` to focus, `z` to zoom\n- `enter` on a row opens it" }
+            "data": { "inline": "Deploy at **17:00** · {black on 220} freeze {/} after that\n- `tab` to focus, `z` to zoom\n- `enter` on a row opens it" }
           }
         ]
       }

@@ -193,3 +193,20 @@ func TestDemo(t *testing.T) {
 		os.Stdout.WriteString(view + "\n")
 	}
 }
+
+func TestMarkdownContinuations(t *testing.T) {
+	got := joinContinuations([]string{"- one", "  two", "- three", "", "  code", "1. four", "   five"})
+	want := []string{"- one two", "- three", "", "  code", "1. four five"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestCellColor(t *testing.T) {
+	colors := map[string]string{"✅": "green", "✅ ready": "cyan", "down": "red"}
+	for v, want := range map[string]string{"✅ clean": "green", "✅ ready to merge": "cyan", "down": "red", "up": ""} {
+		if c, _ := cellColor(colors, v); c != want {
+			t.Errorf("%s: got %q, want %q", v, c, want)
+		}
+	}
+}

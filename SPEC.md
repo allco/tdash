@@ -303,14 +303,19 @@ Data is an array of objects or an array of arrays.
 }
 ```
 
-- Column widths are distributed to fit the pane width. Text that overflows is truncated with `…`.
+- Columns take their natural width, up to 60 cells (the last column is never capped). A table
+  wider than its pane scrolls sideways (§6.1).
+- `colors` maps cell values to colors. A key matches the whole value, or else the start of it,
+  so `{"✅": "green"}` colors `✅ ready to merge`. The longest matching key wins.
 - The header row stays visible while scrolling (sticky header).
 - `↑ ↓` select a row. `Enter` runs the action for that row.
 - Optional: sort by a column (`s` cycles the sort).
 
 ### 5.2 `markdown`
 
-Supported: headings, bold/italic, inline code, code blocks, lists, block quotes,
+Each source line is its own line on screen, except that indented lines right after a list item
+continue that item (so wrapped list items read as one). Supported: headings, bold/italic, inline
+code, code blocks, lists, block quotes,
 horizontal rules, links (`Enter` on a selected link opens it), and **colored
 spans** (§7). Text is word-wrapped to the pane width and scrolls vertically.
 

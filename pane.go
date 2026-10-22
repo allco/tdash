@@ -232,7 +232,10 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 				numeric[i] = false
 			}
 		}
-		widths[i] = min(widths[i], maxColWidth)
+		// The last column has nothing after it to push away, so it keeps its full width.
+		if i < len(p.cols)-1 {
+			widths[i] = min(widths[i], maxColWidth)
+		}
 	}
 	const gap = "  "
 	total := 0
@@ -258,7 +261,7 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 	rule := lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", total))
 
 	body := make([]string, len(p.rows))
-	selStyle := lipgloss.NewStyle().Reverse(true)
+	selStyle := lipgloss.NewStyle().Background(lipgloss.Color("24")).Foreground(lipgloss.Color("231")).Bold(true)
 	for r, row := range p.rows {
 		cells := make([]string, len(row))
 		for i, v := range row {
@@ -270,7 +273,7 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 			continue
 		}
 		for i, v := range row {
-			if c, ok := p.cols[i].Colors[v]; ok {
+			if c, ok := cellColor(p.cols[i].Colors, v); ok {
 				cells[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(colorOr(c, ""))).Render(cells[i])
 			}
 		}
@@ -281,6 +284,21 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 		cur = p.sel
 	}
 	return content{header: []string{headStyle.Render(strings.Join(head, gap)), rule}, body: body, cursor: cur}
+}
+
+// cellColor finds a cell's color: the key equal to the value, or else the longest key the value
+// starts with, so "✅" colors "✅ ready to merge".
+func cellColor(colors map[string]string, v string) (string, bool) {
+	if c, ok := colors[v]; ok {
+		return c, true
+	}
+	best, color := -1, ""
+	for k, c := range colors {
+		if k != "" && strings.HasPrefix(v, k) && len(k) > best {
+			best, color = len(k), c
+		}
+	}
+	return color, best >= 0
 }
 
 func colTitle(c Column) string {

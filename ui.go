@@ -749,7 +749,7 @@ func (m *model) frame(i, w, h int) []string {
 	ts := lipgloss.NewStyle().Bold(true)
 	if focused {
 		bs = lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent())).Bold(true)
-		ts = ts.Reverse(true).Foreground(lipgloss.Color(m.accent()))
+		ts = ts.Background(lipgloss.Color(m.accent())).Foreground(lipgloss.Color("0"))
 	}
 
 	// Title, with a mark while its data is loading.

@@ -280,6 +280,30 @@ var (
 	headingLine = regexp.MustCompile(`^(#{1,6})\s+(.*)$`)
 )
 
+// joinContinuations joins indented lines onto the list item above them, as Markdown does with a
+// list item that is wrapped in the source.
+func joinContinuations(lines []string) []string {
+	var out []string
+	inItem, inCode := false, false
+	for _, l := range lines {
+		t := strings.TrimSpace(l)
+		if strings.HasPrefix(t, "```") {
+			inCode = !inCode
+			inItem = false
+			out = append(out, l)
+			continue
+		}
+		item := !inCode && (bulletItem.MatchString(l) || orderedItem.MatchString(l))
+		if !inCode && !item && inItem && t != "" && strings.HasPrefix(l, "  ") {
+			out[len(out)-1] += " " + t
+			continue
+		}
+		inItem = item
+		out = append(out, l)
+	}
+	return out
+}
+
 // renderMarkdown renders Markdown to styled lines of at most width cells. Each source line is its
 // own line on screen: on a dashboard, line breaks are usually meant.
 func renderMarkdown(src string, width int, accent string) []string {
@@ -288,7 +312,7 @@ func renderMarkdown(src string, width int, accent string) []string {
 	codeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("180"))
 	dim := attrs{fg: "241"}
 
-	for _, l := range strings.Split(strings.ReplaceAll(src, "\t", "    "), "\n") {
+	for _, l := range joinContinuations(strings.Split(strings.ReplaceAll(src, "\t", "    "), "\n")) {
 		l = strings.TrimRight(l, "\r")
 		if strings.HasPrefix(strings.TrimSpace(l), "```") {
 			inCode = !inCode
