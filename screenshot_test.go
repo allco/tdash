@@ -32,7 +32,6 @@ func TestScreenshots(t *testing.T) {
 		keys          []string
 		width, height int
 	}{
-		{name: "dashboard", width: 140, height: 42},
 		// Services focused, a row selected, scrolled sideways to the URL column.
 		{name: "table", keys: []string{"tab", "tab", "tab", "down", "down", "down", "right", "right", "right", "right"}, width: 140, height: 42},
 		// The spline zoomed to the full screen, with the cursor on a point.

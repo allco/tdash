@@ -5,12 +5,10 @@ Markdown and charts), and each pane gets its data inline, from a file, from a co
 URL. Commands and URLs refresh on a timer, so a few lines of config and a shell script turn into a
 live status board.
 
-![The demo dashboard](docs/screenshots/dashboard.png)
+![The demo dashboard, with a table focused](docs/screenshots/table.png)
 
-Focus a pane with `tab`, then move through it. Here a table row is selected and the table is
-scrolled sideways (see the thumb in the bottom border):
-
-![A focused table](docs/screenshots/table.png)
+Focus a pane with `tab`, then move through it. Above, a row of the Services table is selected and
+the table is scrolled sideways (see the thumb in its bottom border).
 
 `z` zooms the focused pane to the full screen. In a chart, `←` `→` move a cursor that reads out
 the values:
