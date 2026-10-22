@@ -430,20 +430,60 @@ so tdashboard uses a short inline tag syntax:
 
 ---
 
-## 9. Open questions
+## 9. Tech stack
 
-- **Implementation language/stack.** Recommendation: **Go + Bubble Tea + Lip
-  Gloss**, which produce a single static binary and have mature TUI and layout
-  primitives (the `ntcharts` library covers braille line charts). The
-  alternative is **Rust + ratatui**, which has built-in chart, sparkline,
-  bar and table widgets.
+**Go + Bubble Tea.** We use the current stable Go release. The module is
+`github.com/allco/tdash`, and the binary is called `tdashboard`.
+
+| Need | Library |
+|------|---------|
+| TUI framework (Elm-style model / update / view) | `github.com/charmbracelet/bubbletea` |
+| Styling, borders, colors, joining panes into the grid | `github.com/charmbracelet/lipgloss` |
+| Scrollable viewport, help overlay, key bindings | `github.com/charmbracelet/bubbles` (`viewport`, `help`, `key`) |
+| Braille line charts, bar charts, sparklines | `github.com/NimbleMarkets/ntcharts` |
+| Markdown parsing | `github.com/yuin/goldmark` (parsing only) + our own renderer to Lip Gloss. We don't use `glamour`, because the `{red}…{/}` tags (§7) have to be part of the renderer |
+| JSON config | `encoding/json`. JSONC (comments, trailing commas) is handled by `github.com/tailscale/hujson`, which strips them before parsing |
+| JSON Schema generation | `github.com/invopop/jsonschema`, which generates the schema from the config structs |
+| `select` paths (§4.4) | Our own small parser, because the subset is tiny |
+| Command / URL suppliers | `os/exec` + `net/http` from the standard library, with `context.WithTimeout` |
+| `--watch` | `github.com/fsnotify/fsnotify` |
+| Actions: open URL / copy | `github.com/pkg/browser`, `github.com/atotto/clipboard` |
+| Command-line flags | `flag` from the standard library |
+| Tests | `testing` + `github.com/charmbracelet/x/exp/teatest` (golden-file tests of rendered screens) |
+
+Things we build ourselves:
+- **Grid layout.** Split the width by span and the height by units, then join the panes
+  with `lipgloss.JoinHorizontal` / `JoinVertical`.
+- **Spline.** Smooth the points with Catmull-Rom interpolation, then plot them as an ntcharts line chart.
+- **Histogram binning.**
+- **Table.** Our own column fitting, truncation and sticky header (the `bubbles` table is too limited).
+
+Supplier fetches run as `tea.Cmd`s, so the UI never blocks. Each result comes back to
+`Update` as a message (`dataMsg{source, payload, err}`). Timers use `tea.Tick`.
+
+Proposed package layout:
+
+```
+cmd/tdashboard/      main: flags, load config, start the program
+internal/config/     structs, JSONC loading, validation, schema
+internal/supplier/   inline / file / command / url fetchers, select, scheduler
+internal/layout/     grid math (span, units, scrolling)
+internal/pane/       one file per pane type, all implementing a common Pane interface
+internal/markup/     markdown renderer + color tags
+internal/app/        root Bubble Tea model: focus, keymap, overlays, status line
+```
+
+---
+
+## 10. Open questions
+
 - Should a row be able to scroll on its own, or does only the whole dashboard scroll?
 - Should there be several dashboards in one config, as tabs switched with `1..9`?
 - Config format: plain JSON only, or also JSONC/JSON5 (comments are very handy in dashboards)?
 
 ---
 
-## 10. Milestones
+## 11. Milestones
 
 1. **M1 — Skeleton:** load and validate the config, grid layout with `span` and
    units, borders and titles, resize handling, `q`, `Tab`, `Esc`, focus styling.
