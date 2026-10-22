@@ -22,7 +22,7 @@ tdashboard [path/to/dashboard.json]
 
 - Mouse-first interaction (mouse support is nice to have, not required).
 - Editing data from inside the dashboard.
-- A plugin system with arbitrary code (external commands are used instead, see §6.3).
+- A plugin system with arbitrary code (external commands are used instead, see §6.4).
 
 ---
 
@@ -99,6 +99,7 @@ The width formula then becomes `available width / Σ spans × span`.
 | `Shift+Tab` | Focus the previous pane |
 | `Esc` | Remove focus. Also closes any open overlay (help, detail view) |
 | `?` | Show a help overlay with all key bindings *(recommended)* |
+| `p` | Pause or resume auto-refresh *(recommended)* |
 | `↑ ↓` / `PgUp PgDn` (no focus) | Scroll the dashboard vertically |
 
 ### 3.3 Keys inside a focused pane
@@ -108,7 +109,7 @@ The width formula then becomes `available width / Σ spans × span`.
 | `↑ ↓` | Move the selection, or scroll the content |
 | `← →` | Change the column (table) or move the cursor along the x axis (chart) |
 | `PgUp PgDn` / `Home End` | Jump by a page, or to the start/end |
-| `Enter` | Run the **action** of the selected item (§6.3) |
+| `Enter` | Run the **action** of the selected item (§6.4) |
 | `z` | Zoom: show the focused pane full-screen, `Esc` to go back *(recommended)* |
 | `/` | Filter the table rows or search the text *(recommended)* |
 
@@ -121,7 +122,7 @@ The width formula then becomes `available width / Σ spans × span`.
 ```jsonc
 {
   "title": "Prod overview",
-  "refresh": "30s",                 // optional auto-reload of all data; omit = manual only
+  "refresh": "30s",                 // optional auto-refresh of all data (§6.3); omit = manual only
   "theme": {
     "accent": "cyan",
     "border": "gray",
@@ -160,8 +161,8 @@ The width formula then becomes `available width / Σ spans × span`.
 | `title` | string | Shown in the top border |
 | `span` | int | Column slots taken, default `1` |
 | `data` | object | Data source (§4.3) |
-| `refresh` | duration | Overrides the global `refresh` for this pane |
-| `action` | object | What `Enter` does on the selected item (§6.3) |
+| `refresh` | duration \| `"off"` | Auto-refresh interval for this pane. Overrides the global `refresh` (§6.3) |
+| `action` | object | What `Enter` does on the selected item (§6.4) |
 | `style` | object | Per-pane overrides for border and accent colors |
 
 ### 4.3 Data sources
@@ -259,7 +260,35 @@ and the error is shown in a status line at the bottom.
 
 *Recommended:* `--watch` reloads automatically when the config or data files change.
 
-### 6.3 Actions on selectable items
+### 6.3 Auto-refresh
+
+Auto-refresh is set in the config. It works at two levels:
+
+```jsonc
+{
+  "refresh": "30s",                       // global default for all panes
+  "layout": { "rows": [ { "height": 1, "panes": [
+    { "type": "log",   "data": { "command": "tail -n 200 app.log" }, "refresh": "2s"  },  // faster
+    { "type": "table", "data": { "file": "services.json" },          "refresh": "off" }   // manual only
+  ] } ] }
+}
+```
+
+- Values are durations (`"500ms"`, `"5s"`, `"1m"`, `"1h"`) or `"off"`. The smallest allowed value is `500ms`.
+- If neither `refresh` is set, the pane only reloads when you press `R`.
+- A pane's `refresh` overrides the global value.
+- Auto-refresh reloads **data only**. To reload the config, press `R` or use `--watch`.
+- Each pane refreshes on its own timer. A `command` that is still running when the next
+  refresh is due is not started again, so commands never overlap. If a command runs longer
+  than `timeout` (default: the refresh interval, at most `30s`), it is killed and the
+  pane shows an error.
+- Focus, selection and scroll position are kept across refreshes. For `log` panes,
+  the view stays pinned to the bottom unless you have scrolled up.
+- The pane title shows a small indicator while data is loading (`⟳`). The status line
+  shows the time of the last refresh for the focused pane.
+- *Recommended:* `p` pauses or resumes auto-refresh for the whole dashboard.
+
+### 6.4 Actions on selectable items
 
 Selectable items are table rows, list items and Markdown links. `action` is set
 on the pane, and can be overridden per item with an `action` field in the data.
@@ -303,7 +332,7 @@ so tdashboard uses a short inline tag syntax:
 ## 8. Recommendations beyond the original idea (summary)
 
 1. **`span`** for panes, so non-uniform grids are possible (§2.3).
-2. **`command` data source** and **auto-refresh**, so the dashboard is live (§4.3).
+2. **`command` data source** (§4.3) and **auto-refresh set in the config** (§6.3), so the dashboard is live.
 3. **Per-pane error display**, so one bad data file doesn't take down the whole dashboard (§4.4).
 4. **Zoom (`z`)**, to read a dense pane full-screen.
 5. **Help overlay (`?`)** and a **status line** (last reload time, errors, action results).
