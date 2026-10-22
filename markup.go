@@ -199,10 +199,12 @@ func indexRune(rs []rune, r rune, from int) int {
 }
 
 // wrapSegs word-wraps styled text to width. The first line starts with first, the following
-// lines with cont; both are plain text of the same width.
+// lines with cont; both are plain text of the same width. A word made of differently styled parts,
+// like "`code`." is kept together.
 func wrapSegs(segs []seg, width int, first, cont seg) []string {
+	// A piece is a word or a run of spaces, made of one or more styled parts.
 	type piece struct {
-		seg
+		parts []seg
 		w     int
 		space bool
 	}
@@ -211,62 +213,69 @@ func wrapSegs(segs []seg, width int, first, cont seg) []string {
 		start := 0
 		rs := []rune(s.text)
 		for i := 1; i <= len(rs); i++ {
-			if i == len(rs) || (rs[i] == ' ') != (rs[start] == ' ') {
-				t := string(rs[start:i])
-				pieces = append(pieces, piece{seg{t, s.a}, ansi.StringWidth(t), rs[start] == ' '})
-				start = i
+			if i < len(rs) && (rs[i] == ' ') == (rs[start] == ' ') {
+				continue
 			}
+			t := string(rs[start:i])
+			space := rs[start] == ' '
+			if n := len(pieces); n > 0 && pieces[n-1].space == space {
+				pieces[n-1].parts = append(pieces[n-1].parts, seg{t, s.a})
+				pieces[n-1].w += ansi.StringWidth(t)
+			} else {
+				pieces = append(pieces, piece{[]seg{{t, s.a}}, ansi.StringWidth(t), space})
+			}
+			start = i
 		}
 	}
 
 	var lines []string
 	var line strings.Builder
-	prefix := first
-	lineW := ansi.StringWidth(prefix.text)
-	avail := width
-	line.WriteString(prefix.a.style().Render(prefix.text))
-	var pending []piece // spaces not yet written, dropped at a line break
+	lineW := ansi.StringWidth(first.text)
+	line.WriteString(first.a.style().Render(first.text))
 	newLine := func() {
 		lines = append(lines, line.String())
 		line.Reset()
 		line.WriteString(cont.a.style().Render(cont.text))
 		lineW = ansi.StringWidth(cont.text)
-		pending = nil
 	}
+	var pending *piece // spaces not yet written, dropped at a line break
 	empty := true
-	for _, p := range pieces {
+	for i := range pieces {
+		p := &pieces[i]
 		if p.space {
 			if !empty {
-				pending = append(pending, p)
+				pending = p
 			}
 			continue
 		}
 		spaceW := 0
-		for _, s := range pending {
-			spaceW += s.w
+		if pending != nil {
+			spaceW = pending.w
 		}
-		if !empty && lineW+spaceW+p.w > avail {
+		if !empty && lineW+spaceW+p.w > width {
 			newLine()
-			spaceW = 0
-		}
-		for _, s := range pending {
-			line.WriteString(s.a.style().Render(s.text))
-			lineW += s.w
+		} else if pending != nil {
+			for _, s := range pending.parts {
+				line.WriteString(s.a.style().Render(s.text))
+			}
+			lineW += pending.w
 		}
 		pending = nil
-		// A word longer than the line is split wherever it has to be.
-		text := p.text
-		for lineW+ansi.StringWidth(text) > avail && avail-lineW > 0 {
-			head := ansi.Truncate(text, avail-lineW, "")
-			if head == "" {
-				break
+		for _, part := range p.parts {
+			// A word longer than the line is split wherever it has to be.
+			text := part.text
+			for lineW+ansi.StringWidth(text) > width && width-lineW > 0 {
+				head := ansi.Truncate(text, width-lineW, "")
+				if head == "" {
+					break
+				}
+				line.WriteString(part.a.style().Render(head))
+				text = strings.TrimPrefix(text, head)
+				newLine()
 			}
-			line.WriteString(p.a.style().Render(head))
-			text = strings.TrimPrefix(text, head)
-			newLine()
+			line.WriteString(part.a.style().Render(text))
+			lineW += ansi.StringWidth(text)
 		}
-		line.WriteString(p.a.style().Render(text))
-		lineW += ansi.StringWidth(text)
 		empty = false
 	}
 	lines = append(lines, line.String())

@@ -17,6 +17,12 @@ the values:
 
 ![A zoomed chart with the cursor](docs/screenshots/chart.png)
 
+[examples/agents](examples/agents) turns a Markdown status file, which AI coding agents keep up to
+date, into a status board. A small script converts the file to JSON, and the dashboard re-reads it
+every 30 seconds:
+
+![An agents status board](docs/screenshots/agents.png)
+
 The screenshots use made-up data. The design behind tdash, including the parts that aren't built
 yet, is in [SPEC.md](SPEC.md).
 
@@ -223,9 +229,11 @@ go vet ./...
 
 To regenerate the screenshots after a UI change, install
 [freeze](https://github.com/charmbracelet/freeze) (`go install github.com/charmbracelet/freeze@v0.2.2`)
-and Google Chrome, then run `./scripts/screenshots.sh`. The first run downloads the
+Google Chrome and `python3`, then run `./scripts/screenshots.sh`. The first run downloads the
 [JuliaMono](https://github.com/cormullion/juliamono) font into `~/.cache/tdash`, because the charts'
-braille dots need a font that has them. The PNGs are stored with Git LFS (`git lfs install` once).
+braille dots need a font that has them. `scripts/svg-grid.py` then puts every character on its
+terminal cell, so emoji take two cells as they do in a terminal. The PNGs are stored with Git LFS
+(`git lfs install` once).
 
 | File | Contains |
 |---|---|
@@ -237,8 +245,9 @@ braille dots need a font that has them. The PNGs are stored with Git LFS (`git l
 | `markup.go` | the Markdown renderer and color tags |
 | `ui.go` | the Bubble Tea app: refresh timers, focus, keys, mouse, the pane frame, the status line |
 | `splash.go` | the start-up splash and the logo |
-| `screenshot_test.go`, `scripts/screenshots.sh` | renders the README screenshots from made-up data |
+| `screenshot_test.go`, `scripts/screenshots.sh`, `scripts/svg-grid.py` | renders the README screenshots from made-up data |
 | `examples/` | the demo dashboard, its data files and a supplier script |
+| `examples/agents/` | the agents status board: a made-up `status.md`, `status2json.py` and `agents.json` |
 
 ### CI and releases
 

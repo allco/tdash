@@ -39,6 +39,8 @@ for ansi in "$tmp"/*.ansi; do
   svg="$tmp/$name.svg"
   freeze "$ansi" --language ansi --window --padding 20,24 --margin 0 \
     --border.radius 8 --font.size 14 --font.file "$font" --font.family "JuliaMono" --output "$svg" </dev/null >/dev/null
+  # Every run of text at its terminal cell, so emoji take two cells as they do in a terminal.
+  python3 -I scripts/svg-grid.py "$svg"
 
   # The page is exactly the SVG's size, so the PNG has no border around the window.
   ceil() { awk '{ print int($1) + ($1 > int($1)) }'; }

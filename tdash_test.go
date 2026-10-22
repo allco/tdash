@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -247,5 +248,34 @@ func TestConfigChangeReloads(t *testing.T) {
 	m.Update(configCheckMsg{})
 	if m.cfg.Title != "two" || !m.flashErr {
 		t.Errorf("title %q, flash %q", m.cfg.Title, m.flash)
+	}
+}
+
+// TestAgentsExample loads the agents example through its parser script and checks every pane
+// gets its data.
+func TestAgentsExample(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not found")
+	}
+	m := agentsModel(t)
+	m.Update(tea.WindowSizeMsg{Width: 160, Height: 44})
+	for _, ps := range m.panes {
+		if ps.err != nil {
+			t.Errorf("%s: %v", ps.cfg.Title, ps.err)
+		}
+	}
+	if view := m.View(); !strings.Contains(view, "!831") || !strings.Contains(view, "Review agent") {
+		t.Error("the stack or the agents are missing from the view")
+	}
+}
+
+func TestWrapKeepsStyledWordsTogether(t *testing.T) {
+	segs := inlineSegs("aaaa bbbb `cc`.", attrs{})
+	var plain []string
+	for _, l := range wrapSegs(segs, 12, seg{}, seg{}) {
+		plain = append(plain, ansi.Strip(l))
+	}
+	if strings.Join(plain, "|") != "aaaa bbbb|cc." {
+		t.Errorf("lines = %q", plain)
 	}
 }

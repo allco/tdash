@@ -1,0 +1,66 @@
+// An AI agents status board: a Markdown status file that agents keep up to date, turned into JSON
+// by status2json.py and re-read every 30s. Point the command at your own file, for example
+// "ssh build-box cat ~/status.md | python3 -I status2json.py".
+// Run it with: tdash examples/agents/agents.json
+{
+  "title": "Agents",
+  "theme": { "accent": "cyan" },
+
+  "suppliers": {
+    "status": {
+      "command": "python3 -I status2json.py < status.md",
+      "env": { "MR_URL": "https://gitlab.example.com/acme/checkout/-/merge_requests/" },
+      "refresh": "30s",
+      "timeout": "15s"
+    }
+  },
+
+  "layout": {
+    "rows": [
+      {
+        "height": 1,
+        "panes": [
+          { "type": "markdown", "title": "Status", "data": { "supplier": "status", "select": "$.header" } },
+          {
+            "type": "table", "title": "Ongoing work", "span": 2,
+            "columns": [
+              { "key": "Who" },
+              { "key": "Last heard", "title": "Heard" },
+              { "key": "Doing" }
+            ],
+            "data": { "supplier": "status", "select": "$.sections.ongoing_work.rows" }
+          }
+        ]
+      },
+      {
+        "height": 1,
+        "panes": [
+          {
+            "type": "table", "title": "Open stack · enter opens the MR", "span": 2,
+            "columns": [
+              { "key": "Part" },
+              { "key": "MR" },
+              { "key": "Status", "colors": { "✅": "green", "🚂": "cyan", "🚉": "cyan", "👀": "yellow", "📝": "gray", "❌": "red" } },
+              { "key": "Ap", "colors": { "🟢": "green" } },
+              { "key": "CI", "colors": { "✅": "green", "❌": "red", "🔄": "blue" } },
+              { "key": "Threads", "colors": { "💬": "yellow" } },
+              { "key": "Local checks", "title": "Local", "colors": { "✅": "green", "❌": "red" } },
+              { "key": "claude-review", "colors": { "✅": "green" } },
+              { "key": "/code-review", "colors": { "✅": "green" } }
+            ],
+            "data": { "supplier": "status", "select": "$.sections.open_stack.rows" },
+            "action": { "open": "{{url}}" }
+          },
+          { "type": "markdown", "title": "Plan", "data": { "supplier": "status", "select": "$.sections.plan.text" } }
+        ]
+      },
+      {
+        "height": 2,
+        "panes": [
+          { "type": "markdown", "title": "Decisions in force", "span": 2, "data": { "supplier": "status", "select": "$.sections.decisions_in_force.text" } },
+          { "type": "markdown", "title": "Questions", "data": { "supplier": "status", "select": "$.questions" } }
+        ]
+      }
+    ]
+  }
+}

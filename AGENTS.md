@@ -9,10 +9,9 @@ fits together, and what was learned along the way.
 
 - **Commit and push after every change**, to `origin/main` (`git@github.com:allco/tdash.git`).
   Don't ask first. The user asked for this.
-- **Author email:** commits must use the user's private address,
-  `alexander.skvortsov@gmail.com`. It's set in this repo's local git config. The global
-  `~/.gitconfig` has a second (work) address listed last, and that one wins if the local setting is
-  ever lost, so check `git config user.email` before committing.
+- **Author identity:** commit with the name and email already set in this repo's local git config
+  (`git config --local user.email`); the user chose that address for this project. Don't change it
+  or fall back to the global config. If the local setting is missing, ask the user.
 - End commit messages with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Before committing: `gofmt -l .` (must print nothing), `go vet ./...`, `go test ./...`. The
   post-merge workflow runs the same checks.
@@ -55,6 +54,8 @@ Everything is in one `package main` at the root:
 | `tdash_test.go` | unit tests + `TestDemo` (renders `examples/demo.json`; `TDASH_SHOW=1` prints it) |
 | `screenshot_test.go` | `TestScreenshots` (only with `TDASH_SCREENSHOTS=<dir>`), made-up demo data, `freezeColors` |
 | `examples/` | `demo.json` (uses every feature), data files, `scripts/metrics.sh` |
+| `examples/agents/` | an AI agents status board: `status.md` (made up) → `status2json.py` → `agents.json` |
+| `scripts/` | `screenshots.sh` and its helper `svg-grid.py` |
 
 ### How the pieces talk
 
@@ -98,8 +99,14 @@ Everything is in one `package main` at the root:
   - `freeze` drops **reverse video** and the **basic background colors** (SGR 40–47, 100–107).
     The UI therefore uses explicit colors for the selected row (bg 24) and the focused title (bg =
     accent), and `freezeColors` in `screenshot_test.go` rewrites basic backgrounds to `48;5;N`.
-  - Needs `freeze` (`go install github.com/charmbracelet/freeze@v0.2.2`, lands in `~/go/bin`) and
-    Google Chrome.
+  - Emoji (✅ 🚂 💬 …) take two cells in a terminal, but fonts draw them at other widths, which
+    shifts everything after them. `scripts/svg-grid.py` rewrites each SVG so every run of text sits
+    at its exact cell (an explicit `x` per run, `east_asian_width` W/F = two cells, matching
+    `ansi.StringWidth`), and draws wide characters with the color emoji font.
+  - Needs `freeze` (`go install github.com/charmbracelet/freeze@v0.2.2`, lands in `~/go/bin`),
+    Google Chrome and `python3`.
+  - Screenshots must be safe to publish: made-up data only. `examples/agents/` is the public
+    stand-in for the user's private agents dashboard, with an invented status file.
 - `pkg/browser` prints the opener's output to stdout, which would land on top of the TUI. `init()`
   in `ui.go` silences it.
 - `gh` is not installed on this machine, so CI runs can't be checked from here.
@@ -129,7 +136,8 @@ Open questions for the user are listed in SPEC.md §10.
 
 The user keeps personal dashboards **outside this repo**, under `~/.config/tdash/<name>/` (a
 config plus any helper scripts). They can contain internal work data, so don't copy them into the
-repo or its examples. When a status file they come from changes shape (new columns, new emoji),
+repo, its examples or its screenshots. Make a made-up public version instead, as
+`examples/agents/` is for the agents dashboard. When a status file they come from changes shape (new columns, new emoji),
 update the dashboard's config (and its parser script, if it has one) there. Check the result by
 loading the config, running the fetches, and printing `m.View()` from a throwaway test, which you
 delete afterwards.

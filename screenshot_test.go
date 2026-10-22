@@ -17,7 +17,7 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// TestScreenshots renders the demo dashboard with made-up data and writes each screen as ANSI
+// TestScreenshots renders the example dashboards with made-up data and writes each screen as ANSI
 // text to $TDASH_SCREENSHOTS. scripts/screenshots.sh turns those into the PNGs in docs/screenshots.
 func TestScreenshots(t *testing.T) {
 	dir := os.Getenv("TDASH_SCREENSHOTS")
@@ -28,6 +28,7 @@ func TestScreenshots(t *testing.T) {
 
 	shots := []struct {
 		name          string
+		model         func(*testing.T) *model
 		keys          []string
 		width, height int
 	}{
@@ -37,9 +38,14 @@ func TestScreenshots(t *testing.T) {
 		// The spline zoomed to the full screen, with the cursor on a point.
 		{name: "chart", keys: []string{"tab", "z", "left", "left", "left", "left", "left", "left", "left", "left", "left", "left"}, width: 140, height: 30},
 		{name: "help", keys: []string{"?"}, width: 100, height: 30},
+		// The agents status board, with the open stack focused and a part selected.
+		{name: "agents", model: agentsModel, keys: []string{"tab", "tab", "tab", "down", "down"}, width: 160, height: 44},
 	}
 	for _, shot := range shots {
-		m := demoModel(t)
+		if shot.model == nil {
+			shot.model = demoModel
+		}
+		m := shot.model(t)
 		m.Update(tea.WindowSizeMsg{Width: shot.width, Height: shot.height})
 		for _, k := range shot.keys {
 			m.View() // the frame measures each pane, and scrolling needs those sizes
@@ -78,6 +84,28 @@ func freezeColors(s string) string {
 		}
 		return "\x1b[" + strings.Join(ps, ";") + "m"
 	})
+}
+
+// agentsModel is examples/agents/agents.json, fed from its made-up status.md.
+func agentsModel(t *testing.T) *model {
+	t.Helper()
+	cfg, err := loadConfig("examples/agents/agents.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel("examples/agents/agents.json", cfg)
+	m.splash = false
+	for k, src := range m.sources {
+		v, err := fetch(context.Background(), src.ref, cfg.dir)
+		if err != nil {
+			t.Fatalf("%s: %v", k, err)
+		}
+		src.value, src.has, src.updated = v, true, time.Date(2026, 10, 22, 16, 11, 30, 0, time.Local)
+	}
+	for i := range m.panes {
+		m.deliver(i)
+	}
+	return m
 }
 
 // demoModel is examples/demo.json with made-up data in place of its commands and URL, so the
