@@ -228,7 +228,7 @@ go vet ./...
 ```
 
 To regenerate the screenshots after a UI change, install
-[freeze](https://github.com/charmbracelet/freeze) (`go install github.com/charmbracelet/freeze@v0.2.2`)
+[freeze](https://github.com/charmbracelet/freeze) (`go install github.com/charmbracelet/freeze@v0.2.2`),
 Google Chrome and `python3`, then run `./scripts/screenshots.sh`. The first run downloads the
 [JuliaMono](https://github.com/cormullion/juliamono) font into `~/.cache/tdash`, because the charts'
 braille dots need a font that has them. `scripts/svg-grid.py` then puts every character on its
