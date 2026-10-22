@@ -167,15 +167,100 @@ The width formula then becomes `available width / Σ spans × span`.
 
 ### 4.3 Data sources
 
-There is exactly one source per pane:
+A pane's `data` takes exactly one source:
 
 | Source | Example | Notes |
 |--------|---------|-------|
 | `inline` | `{ "inline": [1, 2, 3] }` | Data is embedded in the config |
 | `file` | `{ "file": "data/cpu.json" }` | The path is relative to the config file. `.json` is parsed, `.md`/`.txt` are read as text |
-| `command` *(recommended)* | `{ "command": "kubectl get pods -o json" }` | Stdout is parsed the same way as a file. This makes the dashboard live without needing a separate exporter |
+| `command` | `{ "command": "kubectl get pods -o json" }` | Stdout is the data (§4.4) |
+| `url` | `{ "url": "https://api.example.com/status" }` | The HTTP response body is the data (§4.4) |
+| `supplier` | `{ "supplier": "k8s", "select": "$.pods" }` | References a named supplier (§4.4) |
 
-### 4.4 Validation
+### 4.4 Data suppliers
+
+A **supplier** is an external program or HTTP endpoint that produces the data for one or
+more panes. A supplier can be written inline in a pane's `data`, or declared once by name
+under the top-level `suppliers` and referenced from several panes. A named supplier is
+fetched **once per refresh**, and every pane that uses it gets the same result.
+
+```jsonc
+{
+  "suppliers": {
+    "k8s": {
+      "command": ["kubectl", "get", "pods", "-o", "json"],   // argv array: no shell
+      "refresh": "10s",
+      "timeout": "5s"
+    },
+    "status": {
+      "url": "https://api.example.com/v1/status",
+      "method": "GET",
+      "headers": { "Authorization": "Bearer ${STATUS_TOKEN}" },  // ${VAR} = environment variable
+      "refresh": "30s"
+    },
+    "notes": {
+      "command": "curl -s https://wiki.example.com/oncall.md",  // string: run via $SHELL -c
+      "format": "text"
+    }
+  },
+  "layout": { "rows": [ { "height": 1, "panes": [
+    { "type": "table",    "title": "Pods",    "data": { "supplier": "k8s", "select": "$.items" } },
+    { "type": "stat",     "title": "Pods up", "data": { "supplier": "k8s", "select": "$.items.length" } },
+    { "type": "table",    "title": "Status",  "data": { "supplier": "status", "select": "$.services" } },
+    { "type": "markdown", "title": "On-call", "data": { "supplier": "notes" } }
+  ] } ] }
+}
+```
+
+#### Supplier fields
+
+| Field | Applies to | Description |
+|-------|------------|-------------|
+| `command` | command | A string (run through `$SHELL -c`, so pipes work) or an argv array (run directly, no shell) |
+| `cwd` | command | Working directory. Default: the config file's directory |
+| `env` | command | Extra environment variables, added to the inherited environment |
+| `url` | url | `http://` or `https://` |
+| `method` | url | Default `GET` |
+| `headers` | url | Map of request headers |
+| `body` | url | Request body. A string, or a JSON value that is sent as `application/json` |
+| `format` | both | `json` (default), `text` or `lines` (a JSON array of strings, one per line). `auto` picks `json` when the output parses as JSON |
+| `refresh` | both | Auto-refresh interval (§6.3) |
+| `timeout` | both | Default `10s` |
+
+- `${VAR}` in `command`, `url`, `headers`, `body` and `env` is replaced with the value
+  of the environment variable. Keep secrets out of the config file this way.
+- **Success** means: a command exits with code 0 and its stdout parses in the given `format`;
+  a URL returns a 2xx response and its body parses. Anything else is an error. The error
+  message includes the exit code or HTTP status and the first lines of stderr or the body.
+  It is shown inside every pane that uses the supplier, and the last good data stays
+  visible underneath (dimmed) until the next successful fetch.
+- **Commands** are never run in parallel with themselves (§6.3). Stderr is captured and
+  is not drawn onto the TUI.
+
+#### Selecting part of the result
+
+`select` on a pane's `data` picks a subtree of the supplier's JSON. That way one call
+can feed several panes. The syntax is a small JSONPath subset:
+`$.a.b`, `$.items[0]`, `$.items[*].name` and `.length`.
+For anything more complex, transform the data in the command itself
+(for example `kubectl … | jq '…'`).
+
+#### Supplier output contract
+
+The output must have the shape the pane type expects (§5). For example, a table
+expects an array of objects, and a spline chart expects an array of numbers.
+Scripts written for tdashboard can also return a pane-ready object that includes
+display hints, such as `{ "columns": […], "rows": […] }` for a table.
+
+#### Security
+
+A config can run arbitrary commands, so it should be treated like a script:
+- Commands run with the user's own permissions. There is no sandbox.
+- *Recommended:* the first time a config with `command` suppliers is opened, ask for
+  confirmation. The answer is remembered per config path and content hash.
+  `--trust` skips the prompt.
+
+### 4.5 Validation
 
 - The config is validated at load time. Errors point to the path, for example
   `layout.rows[1].panes[0].chart: unknown value "pie"`.
@@ -275,13 +360,13 @@ Auto-refresh is set in the config. It works at two levels:
 ```
 
 - Values are durations (`"500ms"`, `"5s"`, `"1m"`, `"1h"`) or `"off"`. The smallest allowed value is `500ms`.
-- If neither `refresh` is set, the pane only reloads when you press `R`.
-- A pane's `refresh` overrides the global value.
+- Which value applies: a named supplier's own `refresh`, then the pane's `refresh`, then the global
+  `refresh`. If none is set, the data only reloads when you press `R`. A named supplier used
+  by several panes runs on its own timer, and every pane that uses it updates together.
 - Auto-refresh reloads **data only**. To reload the config, press `R` or use `--watch`.
-- Each pane refreshes on its own timer. A `command` that is still running when the next
-  refresh is due is not started again, so commands never overlap. If a command runs longer
-  than `timeout` (default: the refresh interval, at most `30s`), it is killed and the
-  pane shows an error.
+- Each data source refreshes on its own timer. A `command` or `url` that is still running when the
+  next refresh is due is not started again, so fetches never overlap. If a fetch runs longer than
+  its `timeout` (default `10s`, §4.4), it is cancelled and the panes that use it show an error.
 - Focus, selection and scroll position are kept across refreshes. For `log` panes,
   the view stays pinned to the bottom unless you have scrolled up.
 - The pane title shows a small indicator while data is loading (`⟳`). The status line
@@ -332,8 +417,8 @@ so tdashboard uses a short inline tag syntax:
 ## 8. Recommendations beyond the original idea (summary)
 
 1. **`span`** for panes, so non-uniform grids are possible (§2.3).
-2. **`command` data source** (§4.3) and **auto-refresh set in the config** (§6.3), so the dashboard is live.
-3. **Per-pane error display**, so one bad data file doesn't take down the whole dashboard (§4.4).
+2. **Data suppliers** (`command` and `url`, §4.4) and **auto-refresh set in the config** (§6.3), so the dashboard is live.
+3. **Per-pane error display**, so one bad data source doesn't take down the whole dashboard (§4.5).
 4. **Zoom (`z`)**, to read a dense pane full-screen.
 5. **Help overlay (`?`)** and a **status line** (last reload time, errors, action results).
 6. **`stat`, `gauge`, `log`, `list`, `kv`** pane types (§5.4).
@@ -364,5 +449,5 @@ so tdashboard uses a short inline tag syntax:
    units, borders and titles, resize handling, `q`, `Tab`, `Esc`, focus styling.
 2. **M2 — Content:** `markdown` (with colors) and `table` panes, per-pane scrolling, `R` reload.
 3. **M3 — Charts:** `spline` and `histogram`, then `sparkline`, `bar` and `stat`.
-4. **M4 — Live & actions:** `command` data source, `refresh`, `--watch`, `Enter` actions.
+4. **M4 — Live & actions:** `command` and `url` suppliers, named suppliers with `select`, `refresh`, `--watch`, `Enter` actions.
 5. **M5 — Polish:** help overlay, zoom, filter, JSON Schema, themes.
