@@ -78,6 +78,7 @@ Options:
   --version         print the version
 
 The config is JSON; comments and trailing commas are allowed. See SPEC.md and examples/.
+The dashboard reloads by itself when the config file changes.
 
 Keys:
   tab, shift+tab    focus the next / previous pane

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -106,10 +107,37 @@ type model struct {
 	flashAt  time.Time
 
 	width, height int
+
+	cfgStamp fileStamp // the config file as last loaded, to notice when it changes
+}
+
+// fileStamp is what we compare to notice that a file changed.
+type fileStamp struct {
+	mod  time.Time
+	size int64
+}
+
+func stampOf(path string) (fileStamp, bool) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return fileStamp{}, false
+	}
+	return fileStamp{fi.ModTime(), fi.Size()}, true
+}
+
+// configCheckEvery is how often the config file is checked for changes. Polling one file is
+// cheap, and unlike a file-system watch it survives editors that save by replacing the file.
+const configCheckEvery = time.Second
+
+type configCheckMsg struct{}
+
+func configCheckCmd() tea.Cmd {
+	return tea.Tick(configCheckEvery, func(time.Time) tea.Msg { return configCheckMsg{} })
 }
 
 func newModel(path string, cfg *Config) *model {
 	m := &model{path: path, focus: -1, splash: true, spinner: spinner.New(spinner.WithSpinner(spinner.Dot))}
+	m.cfgStamp, _ = stampOf(path)
 	m.build(cfg, nil)
 	return m
 }
@@ -200,7 +228,7 @@ func sameJSON(a, b any) bool {
 }
 
 func (m *model) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.spinner.Tick, splashCmd(), splashMaxCmd()}
+	cmds := []tea.Cmd{m.spinner.Tick, splashCmd(), splashMaxCmd(), configCheckCmd()}
 	for k := range m.sources {
 		cmds = append(cmds, m.fetchCmd(k))
 	}
@@ -324,6 +352,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.setFlash(msg.what+": "+msg.err.Error(), true)
 		}
 		return m, m.setFlash(msg.what, false)
+
+	case configCheckMsg:
+		// A file that is missing for a moment, mid-save, is checked again on the next tick.
+		if st, ok := stampOf(m.path); ok && st != m.cfgStamp {
+			return m, tea.Batch(m.reloadWith("config changed, reloaded"), configCheckCmd())
+		}
+		return m, configCheckCmd()
 
 	case clearFlashMsg:
 		if msg.at.Equal(m.flashAt) {
@@ -556,14 +591,19 @@ func (m *model) paneAt(x, y int) (int, rect) {
 	return -1, rect{}
 }
 
-func (m *model) reload() tea.Cmd {
+func (m *model) reload() tea.Cmd { return m.reloadWith("reloaded") }
+
+// reloadWith re-reads the config and refetches all data. An invalid config keeps the dashboard
+// as it is and shows the error; the next change to the file is tried again.
+func (m *model) reloadWith(done string) tea.Cmd {
+	m.cfgStamp, _ = stampOf(m.path)
 	cfg, err := loadConfig(m.path)
 	if err != nil {
 		return m.setFlash(err.Error(), true)
 	}
 	old := *m
 	m.build(cfg, &old)
-	cmds := []tea.Cmd{m.setFlash("reloaded", false)}
+	cmds := []tea.Cmd{m.setFlash(done, false)}
 	for k := range m.sources {
 		cmds = append(cmds, m.fetchCmd(k))
 	}

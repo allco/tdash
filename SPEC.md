@@ -365,7 +365,13 @@ positions are kept for panes with the same `id` (or the same position if there
 is no `id`). If the new config is invalid, the old dashboard stays on screen
 and the error is shown in a status line at the bottom.
 
-*Recommended:* `--watch` reloads automatically when the config or data files change.
+The config file is also **watched**: tdash checks its modification time and size once a second,
+and when they change it reloads exactly as `R` does. A config that is invalid at that moment
+(a save in progress, a typo) keeps the old dashboard and shows the error. The next change is tried
+again. Polling is used rather than a file-system watch, because editors that save by writing a
+new file and renaming it over the old one break such watches.
+
+*Recommended later:* also watch local `file` data sources.
 
 ### 6.3 Auto-refresh
 
@@ -385,7 +391,7 @@ Auto-refresh is set in the config. It works at two levels:
 - Which value applies: a named supplier's own `refresh`, then the pane's `refresh`, then the global
   `refresh`. If none is set, the data only reloads when you press `R`. A named supplier used
   by several panes runs on its own timer, and every pane that uses it updates together.
-- Auto-refresh reloads **data only**. To reload the config, press `R` or use `--watch`.
+- Auto-refresh reloads **data only**. The config reloads when the file changes, or with `R`.
 - Each data source refreshes on its own timer. A `command` or `url` that is still running when the
   next refresh is due is not started again, so fetches never overlap. If a fetch runs longer than
   its `timeout` (default `10s`, §4.4), it is cancelled and the panes that use it show an error.
@@ -445,7 +451,7 @@ so tdash uses a short inline tag syntax:
 5. **Help overlay (`?`)** and a **status line** (last reload time, errors, action results).
 6. **`stat`, `gauge`, `log`, `list`, `kv`** pane types (§5.4).
 7. **JSON Schema** for editor autocomplete and validation.
-8. **`--watch`** mode, which reloads when files change.
+8. **Config watching**: the dashboard reloads when its config file changes (§6.2).
 9. **Themes**: `dark`/`light` presets and a `NO_COLOR` environment variable that is respected.
 10. **Minimum terminal size**: if the terminal is too small to render anything useful,
     show "Terminal too small (need ≥ 40×10)" instead of broken output.
@@ -469,7 +475,7 @@ so tdash uses a short inline tag syntax:
 | JSON Schema generation | `github.com/invopop/jsonschema`, which generates the schema from the config structs |
 | `select` paths (§4.4) | Our own small parser, because the subset is tiny |
 | Command / URL suppliers | `os/exec` + `net/http` from the standard library, with `context.WithTimeout` |
-| `--watch` | `github.com/fsnotify/fsnotify` |
+| Config watching | Polling the file's modification time and size with `tea.Tick` (no library) |
 | Actions: open URL / copy | `github.com/pkg/browser`, `github.com/atotto/clipboard` |
 | Command-line flags | `flag` from the standard library |
 | Tests | `testing`; rendered screens are checked by driving the model and calling `View()` |
@@ -528,5 +534,5 @@ The GitHub workflows are copied from tglab:
    units, borders and titles, resize handling, `q`, `Tab`, `Esc`, focus styling.
 2. **M2 — Content:** `markdown` (with colors) and `table` panes, per-pane scrolling, `R` reload.
 3. **M3 — Charts:** `spline` and `histogram`, then `sparkline`, `bar` and `stat`.
-4. **M4 — Live & actions:** `command` and `url` suppliers, named suppliers with `select`, `refresh`, `--watch`, `Enter` actions.
+4. **M4 — Live & actions:** `command` and `url` suppliers, named suppliers with `select`, `refresh`, config watching, `Enter` actions.
 5. **M5 — Polish:** help overlay, zoom, filter, JSON Schema, themes.

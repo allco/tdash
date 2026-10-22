@@ -50,6 +50,10 @@ tdash --version
 On start, a splash shows while the first data loads (at least 1.2 seconds, at most 3). Any key
 skips it.
 
+tdash watches its config file. When you save a change, the dashboard reloads within a second and
+keeps the focus, scroll positions and data of the panes that didn't change. If the saved config
+has an error, the dashboard stays as it was and the status line shows the error.
+
 ## Keys and mouse
 
 | Key | Action |

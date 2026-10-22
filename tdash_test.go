@@ -210,3 +210,42 @@ func TestCellColor(t *testing.T) {
 		}
 	}
 }
+
+func TestConfigChangeReloads(t *testing.T) {
+	path := t.TempDir() + "/dash.json"
+	write := func(title string, mod time.Time) {
+		src := `{"title": "` + title + `", "layout": {"rows": [{"panes": [{"type": "markdown", "data": {"inline": "hi"}}]}]}}`
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, mod, mod); err != nil {
+			t.Fatal(err)
+		}
+	}
+	start := time.Now().Add(-time.Hour)
+	write("one", start)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel(path, cfg)
+
+	m.Update(configCheckMsg{})
+	if m.cfg.Title != "one" {
+		t.Fatalf("reloaded without a change")
+	}
+	write("two", start.Add(time.Minute))
+	m.Update(configCheckMsg{})
+	if m.cfg.Title != "two" || m.flash != "config changed, reloaded" {
+		t.Errorf("title %q, flash %q", m.cfg.Title, m.flash)
+	}
+
+	// A broken config keeps the dashboard and says why.
+	if err := os.WriteFile(path, []byte(`{"layout": `), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m.Update(configCheckMsg{})
+	if m.cfg.Title != "two" || !m.flashErr {
+		t.Errorf("title %q, flash %q", m.cfg.Title, m.flash)
+	}
+}
