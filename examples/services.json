@@ -1,0 +1,12 @@
+[
+  { "name": "api",      "status": "up",       "p99": 120,  "owner": "platform",  "url": "https://example.com/services/api" },
+  { "name": "auth",     "status": "up",       "p99": 45,   "owner": "identity",  "url": "https://example.com/services/auth" },
+  { "name": "billing",  "status": "degraded", "p99": 830,  "owner": "payments",  "url": "https://example.com/services/billing" },
+  { "name": "db",       "status": "down",     "p99": null, "owner": "platform",  "url": "https://example.com/services/db" },
+  { "name": "search",   "status": "up",       "p99": 210,  "owner": "discovery", "url": "https://example.com/services/search" },
+  { "name": "notifier", "status": "up",       "p99": 18,   "owner": "growth",    "url": "https://example.com/services/notifier" },
+  { "name": "exporter", "status": "up",       "p99": 95,   "owner": "data",      "url": "https://example.com/services/exporter" },
+  { "name": "gateway",  "status": "up",       "p99": 64,   "owner": "platform",  "url": "https://example.com/services/gateway" },
+  { "name": "media",    "status": "degraded", "p99": 640,  "owner": "content",   "url": "https://example.com/services/media" },
+  { "name": "reports",  "status": "up",       "p99": 300,  "owner": "data",      "url": "https://example.com/services/reports" }
+]

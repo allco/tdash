@@ -1,0 +1,195 @@
+package main
+
+import (
+	"context"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
+)
+
+func TestLayoutGrid(t *testing.T) {
+	rows := []Row{
+		{Height: 2, Panes: []PaneConfig{{Span: 2}, {Span: 1}}},
+		{Height: 1, Panes: []PaneConfig{{Span: 1}, {Span: 1}, {Span: 1}}},
+	}
+	rects, total := layoutGrid(rows, 100, 31, 0, 4)
+	// unit = 31/3 = 10; the leftover line goes to the last row.
+	want := []rect{{0, 0, 66, 20}, {66, 0, 34, 20}, {0, 20, 33, 11}, {33, 20, 33, 11}, {66, 20, 34, 11}}
+	if total != 31 {
+		t.Errorf("total = %d, want 31", total)
+	}
+	for i, r := range rects {
+		if r != want[i] {
+			t.Errorf("rect %d = %+v, want %+v", i, r, want[i])
+		}
+	}
+
+	// Too small for minUnit: the dashboard gets taller than the screen and scrolls.
+	if _, total := layoutGrid(rows, 100, 9, 0, 4); total != 12 {
+		t.Errorf("total = %d, want 12 (3 units × minUnit 4)", total)
+	}
+	// A fixed unit ignores the screen height.
+	if _, total := layoutGrid(rows, 100, 50, 5, 4); total != 15 {
+		t.Errorf("total = %d, want 15", total)
+	}
+}
+
+func TestSelect(t *testing.T) {
+	v, err := decodeJSON([]byte(`{"items": [{"name": "a", "n": 1}, {"name": "b", "n": 2}], "x": {"y": "z"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]string{
+		"$":                      `{"items":[{"n":1,"name":"a"},{"n":2,"name":"b"}],"x":{"y":"z"}}`,
+		"$.x.y":                  "z",
+		"$.items[1].name":        "b",
+		"$.items[-1].n":          "2",
+		"$.items[*].name":        `["a","b"]`,
+		"$.items.length":         "2",
+		"$.items[0].name.length": "1",
+	}
+	for path, want := range cases {
+		steps, err := parseSelect(path)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		got, err := applySelect(v, steps)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if s := formatValue(got); s != want {
+			t.Errorf("%s = %s, want %s", path, s, want)
+		}
+	}
+	for _, bad := range []string{"items", "$.items[x]", "$.a..b", "$.items[0"} {
+		if _, err := parseSelect(bad); err == nil {
+			t.Errorf("parseSelect(%q): want an error", bad)
+		}
+	}
+	steps, _ := parseSelect("$.missing")
+	if _, err := applySelect(v, steps); err == nil {
+		t.Error("$.missing: want an error")
+	}
+}
+
+func TestDecodeKeepsKeyOrder(t *testing.T) {
+	v, err := decodeJSON([]byte(`{"z": 1, "a": 2, "m": 3}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(v.(*Object).Keys, ","); got != "z,a,m" {
+		t.Errorf("keys = %s", got)
+	}
+	if _, err := decodeJSON([]byte(`[1] [2]`)); err == nil {
+		t.Error("want an error for trailing data")
+	}
+}
+
+func TestInlineTags(t *testing.T) {
+	segs := inlineSegs(`a {red on yellow}b {bold}c{/}{/} \{d} {nope}e **f** `+"`g`", attrs{})
+	var got []string
+	for _, s := range segs {
+		got = append(got, s.text)
+	}
+	if strings.Join(got, "|") != "a |b |c| {d} {nope}e |f| |g" {
+		t.Errorf("segments = %q", got)
+	}
+	if segs[1].a.fg != "1" || segs[1].a.bg != "3" || !segs[2].a.bold || segs[2].a.fg != "1" {
+		t.Errorf("styles = %+v %+v", segs[1].a, segs[2].a)
+	}
+	if segs[3].a.fg != "" {
+		t.Errorf("tag not closed: %+v", segs[3].a)
+	}
+}
+
+func TestWrapSegs(t *testing.T) {
+	lines := wrapSegs([]seg{{text: "one two three four", a: attrs{}}}, 9, seg{text: "• "}, seg{text: "  "})
+	var plain []string
+	for _, l := range lines {
+		plain = append(plain, ansi.Strip(l))
+	}
+	if strings.Join(plain, "|") != "• one two|  three|  four" {
+		t.Errorf("lines = %q", plain)
+	}
+}
+
+func TestFillAction(t *testing.T) {
+	v, _ := decodeJSON([]byte(`{"name": "it's", "meta": {"id": 7}}`))
+	if got := fill("echo {{name}} {{ meta.id }}", v, shellQuote); got != `echo 'it'\''s' '7'` {
+		t.Errorf("got %s", got)
+	}
+}
+
+func TestConfigErrors(t *testing.T) {
+	cases := map[string]string{
+		`{"layout": {"rows": [{"panes": [{"type": "pie"}]}]}}`:                                      `layout.rows[0].panes[0].type: unknown value "pie"`,
+		`{"layout": {"rows": [{"panes": [{"type": "chart", "chart": "pie"}]}]}}`:                    `layout.rows[0].panes[0].chart: unknown value "pie"`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "data": {"supplier": "x"}}]}]}}`:         `no supplier named "x"`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "data": {"file": "a", "url": "b"}}]}]}}`: "want one source",
+		`{"refresh": "1ms", "layout": {"rows": [{"panes": [{"type": "table"}]}]}}`:                  "below the minimum",
+		`{"layout": {"rows": []}}`: "at least one row",
+		`{"layout": {"rows": [{"panes": [{"type": "table", "colour": 1}]}]}}`: `unknown field "colour"`,
+	}
+	dir := t.TempDir()
+	for src, want := range cases {
+		path := dir + "/c.json"
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := loadConfig(path)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s\n  got %v\n  want %q", src, err, want)
+		}
+	}
+}
+
+// TestDemo loads the example dashboard, fetches everything but the network, and renders it.
+// TDASH_SHOW=1 prints the screen.
+func TestDemo(t *testing.T) {
+	cfg, err := loadConfig("examples/demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel("examples/demo.json", cfg)
+	m.splash = false
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	for k, src := range m.sources {
+		if src.ref.URL != "" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		v, err := fetch(ctx, src.ref, cfg.dir)
+		cancel()
+		if err != nil {
+			t.Errorf("%s: %v", k, err)
+		}
+		m.Update(dataMsg{gen: m.gen, key: k, value: v, err: err})
+	}
+	for _, ps := range m.panes {
+		if ps.err != nil {
+			t.Errorf("%s: %v", ps.cfg.Title, ps.err)
+		}
+	}
+	m.key("tab")
+	m.key("tab")
+	m.key("tab")
+	m.key("down")
+	m.key("down")
+	view := m.View()
+	lines := strings.Split(view, "\n")
+	if len(lines) != 40 {
+		t.Errorf("%d lines, want 40", len(lines))
+	}
+	for i, l := range lines {
+		if w := ansi.StringWidth(l); w > 120 {
+			t.Errorf("line %d is %d wide", i, w)
+		}
+	}
+	if os.Getenv("TDASH_SHOW") != "" {
+		os.Stdout.WriteString(view + "\n")
+	}
+}

@@ -1,0 +1,68 @@
+name: Release
+
+# Runs when a semver tag is pushed, e.g. v1.0.0 or v1.1.0-rc.1.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write # create the release and upload its files
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binaries
+        env:
+          VERSION: ${{ github.ref_name }}
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist
+          for target in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            name="tdash_${VERSION}_${os}_${arch}"
+            bin="tdash"
+            [ "$os" = windows ] && bin="tdash.exe"
+
+            mkdir -p "build/$name"
+            GOOS="$os" GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X main.version=${VERSION}" \
+              -o "build/$name/$bin" .
+            cp -R README.md SPEC.md examples "build/$name/"
+
+            # The bare binary, plus an archive with the README, the spec and the example dashboards.
+            if [ "$os" = windows ]; then
+              cp "build/$name/$bin" "dist/$name.exe"
+              (cd build && zip -qr "../dist/$name.zip" "$name")
+            else
+              cp "build/$name/$bin" "dist/$name"
+              tar -C build -czf "dist/$name.tar.gz" "$name"
+            fi
+          done
+          (cd dist && sha256sum * > checksums.txt)
+          ls -l dist
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          flags=()
+          case "$VERSION" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$VERSION" dist/* \
+            --title "tdash $VERSION" \
+            --generate-notes \
+            --verify-tag \
+            "${flags[@]}"

@@ -1,0 +1,22 @@
+# Binaries
+/tdash
+/bin/
+/dist/
+/build/
+*.exe
+*.test
+*.out
+
+# Local dashboards
+/tdash.json
+
+# Go
+/vendor/
+go.work
+go.work.sum
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

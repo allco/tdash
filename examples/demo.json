@@ -1,0 +1,86 @@
+// tdash demo: every pane type, inline / file / command / url data, a named supplier with
+// select, auto-refresh and row actions. Run it with: tdash examples/demo.json
+{
+  "title": "Demo",
+  "refresh": "30s",
+  "theme": { "accent": "cyan", "border": "gray" },
+
+  "suppliers": {
+    // One command feeds two panes: the spline and the histogram.
+    "metrics": {
+      "command": ["sh", "scripts/metrics.sh"],
+      "refresh": "2s"
+    },
+    "releases": {
+      "url": "https://api.github.com/repos/charmbracelet/bubbletea/releases?per_page=30",
+      "headers": { "Accept": "application/vnd.github+json" },
+      "refresh": "10m"
+    }
+  },
+
+  "layout": {
+    "unit": "auto",
+    "minUnit": 4,
+    "rows": [
+      {
+        "height": 2,
+        "panes": [
+          {
+            "type": "chart", "chart": "spline", "title": "CPU / memory %", "span": 2,
+            "min": 0, "max": 100,
+            "data": { "supplier": "metrics", "select": "$.load" }
+          },
+          { "type": "markdown", "title": "Alerts", "data": { "file": "alerts.md" } }
+        ]
+      },
+      {
+        "height": 2,
+        "panes": [
+          {
+            "type": "table", "title": "Services",
+            "columns": [
+              { "key": "name", "title": "Service" },
+              { "key": "status", "title": "Status", "colors": { "up": "green", "degraded": "yellow", "down": "red" } },
+              { "key": "p99", "title": "p99 ms" },
+              { "key": "owner", "title": "Owner" },
+              { "key": "url", "title": "URL" }
+            ],
+            "data": { "file": "services.json" },
+            "action": { "open": "{{url}}" }
+          },
+          {
+            "type": "chart", "chart": "histogram", "title": "Latency (ms)",
+            "data": { "supplier": "metrics", "select": "$.latency" }
+          },
+          {
+            "type": "markdown", "title": "Host",
+            "refresh": "5s",
+            "data": {
+              "command": "printf '# %s\\n\\n{green}●{/} up %s\\n\\n`%s`\\n' \"$(hostname -s)\" \"$(uptime | sed 's/.*up \\([^,]*\\),.*/\\1/')\" \"$(date '+%H:%M:%S')\"",
+              "format": "text"
+            }
+          }
+        ]
+      },
+      {
+        "height": 1,
+        "panes": [
+          {
+            "type": "table", "title": "bubbletea releases", "span": 2,
+            "columns": [
+              { "key": "tag_name", "title": "Tag" },
+              { "key": "published_at", "title": "Published" },
+              { "key": "name", "title": "Name" }
+            ],
+            "data": { "supplier": "releases" },
+            "action": { "open": "{{html_url}}" }
+          },
+          {
+            "type": "markdown", "title": "Notes",
+            "data": { "inline": "Deploy at **17:00** · {black on yellow} freeze {/} after that\n- `tab` to focus, `z` to zoom\n- `enter` on a row opens it" }
+          }
+        ]
+      }
+    ]
+  }
+}

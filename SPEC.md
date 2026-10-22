@@ -1,11 +1,11 @@
-# tdashboard — Specification
+# tdash — Specification
 
 A terminal (TUI) dashboard, configured with JSON. The screen is a grid of
 **panes**. Each pane shows one kind of content: a table, Markdown text, a
 chart, and so on.
 
 ```
-tdashboard [path/to/dashboard.json]
+tdash [path/to/dashboard.json]
 ```
 
 ---
@@ -41,7 +41,8 @@ The dashboard is a table: a list of **rows**, and each row holds a list of
 - **Vertical overflow.** If the total height of all rows is more than the terminal
   height, the dashboard scrolls vertically. A scrollbar is shown on the right.
 - **Horizontal overflow** never happens at the dashboard level. Inside a
-  pane, content is wrapped or truncated with `…`. It is never scrolled sideways.
+  pane, content that is wider than the pane (wide tables, long code lines) scrolls
+  sideways in that pane (§6.1). Markdown text is word-wrapped instead.
 
 ### 2.2 Base row height
 
@@ -101,17 +102,28 @@ The width formula then becomes `available width / Σ spans × span`.
 | `?` | Show a help overlay with all key bindings *(recommended)* |
 | `p` | Pause or resume auto-refresh *(recommended)* |
 | `↑ ↓` / `PgUp PgDn` (no focus) | Scroll the dashboard vertically |
+| `z` | Zoom: show the focused pane full-screen, `Esc` to go back |
 
 ### 3.3 Keys inside a focused pane
 
 | Key | Action |
 |-----|--------|
-| `↑ ↓` | Move the selection, or scroll the content |
-| `← →` | Change the column (table) or move the cursor along the x axis (chart) |
+| `↑ ↓` | Tables: move the selection. Other panes: scroll the content vertically |
+| `← →` | Charts: move the cursor along the x axis. Other panes: scroll the content sideways |
 | `PgUp PgDn` / `Home End` | Jump by a page, or to the start/end |
 | `Enter` | Run the **action** of the selected item (§6.4) |
-| `z` | Zoom: show the focused pane full-screen, `Esc` to go back *(recommended)* |
 | `/` | Filter the table rows or search the text *(recommended)* |
+
+### 3.4 Mouse
+
+The mouse is captured by default; `--no-mouse` leaves it to the terminal, so text can be selected.
+
+| Mouse | Action |
+|-------|--------|
+| Click a pane | Focus it. Clicking a table row also selects that row |
+| Wheel over a pane | Scroll the pane vertically. If the pane has nothing to scroll, the dashboard scrolls |
+| `Shift`+wheel, or a horizontal wheel / trackpad swipe | Scroll the pane sideways |
+| Wheel over nothing | Scroll the dashboard |
 
 ---
 
@@ -249,7 +261,7 @@ For anything more complex, transform the data in the command itself
 
 The output must have the shape the pane type expects (§5). For example, a table
 expects an array of objects, and a spline chart expects an array of numbers.
-Scripts written for tdashboard can also return a pane-ready object that includes
+Scripts written for tdash can also return a pane-ready object that includes
 display hints, such as `{ "columns": […], "rows": […] }` for a table.
 
 #### Security
@@ -266,7 +278,7 @@ A config can run arbitrary commands, so it should be treated like a script:
   `layout.rows[1].panes[0].chart: unknown value "pie"`.
 - A pane whose data fails to load shows the error **inside the pane** in red,
   and the rest of the dashboard still renders.
-- A published JSON Schema (`tdashboard.schema.json`) gives editor
+- A published JSON Schema (`tdash.schema.json`) gives editor
   autocomplete *(recommended)*.
 
 ---
@@ -332,9 +344,14 @@ at that x position.
 
 ### 6.1 Scrolling
 
-Each pane keeps its own scroll offset. A thin scrollbar is drawn inside the
-right border when the content is longer than the pane. The dashboard itself
-scrolls only when the rows don't fit (§2.2).
+Each pane keeps its own vertical **and horizontal** scroll offset, and scrolls with the arrow
+keys (§3.3) and the mouse (§3.4). The scrollbars are drawn in the pane's border:
+a thick `┃` thumb in the right border when the content is taller than the pane, and a thick
+`━` thumb in the bottom border when it is wider. A table's header row stays visible while its
+rows scroll vertically, and moves sideways together with them.
+
+The dashboard itself scrolls only vertically, and only when the rows don't fit (§2.2). Its
+scrollbar takes the last column of the screen.
 
 ### 6.2 Reload (`R`)
 
@@ -396,7 +413,7 @@ on the pane, and can be overridden per item with an `action` field in the data.
 
 Standard Markdown has no colors. The reference in the idea (GitHub's
 `$\color{red}{\textsf{text}}$` LaTeX trick) is hard to type and hard to read,
-so tdashboard uses a short inline tag syntax:
+so tdash uses a short inline tag syntax:
 
 ```
 {red}text{/}                  foreground only
@@ -433,15 +450,16 @@ so tdashboard uses a short inline tag syntax:
 ## 9. Tech stack
 
 **Go + Bubble Tea.** We use the current stable Go release. The module is
-`github.com/allco/tdash`, and the binary is called `tdashboard`.
+`github.com/allco/tdash`, and the binary is called `tdash`.
 
 | Need | Library |
 |------|---------|
 | TUI framework (Elm-style model / update / view) | `github.com/charmbracelet/bubbletea` |
 | Styling, borders, colors, joining panes into the grid | `github.com/charmbracelet/lipgloss` |
-| Scrollable viewport, help overlay, key bindings | `github.com/charmbracelet/bubbles` (`viewport`, `help`, `key`) |
-| Braille line charts, bar charts, sparklines | `github.com/NimbleMarkets/ntcharts` |
-| Markdown parsing | `github.com/yuin/goldmark` (parsing only) + our own renderer to Lip Gloss. We don't use `glamour`, because the `{red}…{/}` tags (§7) have to be part of the renderer |
+| Spinner on the splash screen | `github.com/charmbracelet/bubbles` |
+| ANSI-aware width, truncation and sideways clipping | `github.com/charmbracelet/x/ansi` |
+| Charts | Our own: braille line plotting and block-character bars (no chart library) |
+| Markdown | Our own line-based renderer to Lip Gloss, with the `{red}…{/}` tags (§7) built in. We don't use `glamour`. If the subset gets too small, we switch to `github.com/yuin/goldmark` for parsing only |
 | JSON config | `encoding/json`. JSONC (comments, trailing commas) is handled by `github.com/tailscale/hujson`, which strips them before parsing |
 | JSON Schema generation | `github.com/invopop/jsonschema`, which generates the schema from the config structs |
 | `select` paths (§4.4) | Our own small parser, because the subset is tiny |
@@ -449,29 +467,45 @@ so tdashboard uses a short inline tag syntax:
 | `--watch` | `github.com/fsnotify/fsnotify` |
 | Actions: open URL / copy | `github.com/pkg/browser`, `github.com/atotto/clipboard` |
 | Command-line flags | `flag` from the standard library |
-| Tests | `testing` + `github.com/charmbracelet/x/exp/teatest` (golden-file tests of rendered screens) |
+| Tests | `testing`; rendered screens are checked by driving the model and calling `View()` |
 
 Things we build ourselves:
-- **Grid layout.** Split the width by span and the height by units, then join the panes
-  with `lipgloss.JoinHorizontal` / `JoinVertical`.
-- **Spline.** Smooth the points with Catmull-Rom interpolation, then plot them as an ntcharts line chart.
+- **Grid layout.** Split the width by span and the height by units, then join the pane frames
+  line by line.
+- **Pane frame.** Border, title, error lines, scrolling, clipping and the scrollbars. Pane types
+  only produce their full content.
+- **Spline.** Smooth the points with Catmull-Rom interpolation, then plot them with braille dots (2×4 per cell).
 - **Histogram binning.**
 - **Table.** Our own column fitting, truncation and sticky header (the `bubbles` table is too limited).
 
 Supplier fetches run as `tea.Cmd`s, so the UI never blocks. Each result comes back to
 `Update` as a message (`dataMsg{source, payload, err}`). Timers use `tea.Tick`.
 
-Proposed package layout:
+Code layout: one `package main` at the repository root, the same as tglab. This keeps
+`go build .` and the release workflow simple. We'll split it into packages once it grows.
 
 ```
-cmd/tdashboard/      main: flags, load config, start the program
-internal/config/     structs, JSONC loading, validation, schema
-internal/supplier/   inline / file / command / url fetchers, select, scheduler
-internal/layout/     grid math (span, units, scrolling)
-internal/pane/       one file per pane type, all implementing a common Pane interface
-internal/markup/     markdown renderer + color tags
-internal/app/        root Bubble Tea model: focus, keymap, overlays, status line
+main.go        flags, load config, start the program
+config.go      structs, JSONC loading, validation
+supplier.go    inline / file / command / url fetchers, ordered JSON decoding, select
+layout.go      grid math (span, units)
+markup.go      markdown renderer + color tags
+pane.go        the Pane interface and the table, markdown, spline and histogram panes
+ui.go          root Bubble Tea model: sources and refresh, focus, keys, mouse, frame, status line
+splash.go      start-up splash and logo
+examples/      demo dashboard with data files and a supplier script
 ```
+
+### Releases
+
+The GitHub workflows are copied from tglab:
+- **Post merge** (`.github/workflows/post-merge.yml`) runs on every push to `main`. It runs
+  `gofmt`, `go vet`, the tests and a build.
+- **Release** (`.github/workflows/release.yml`) runs when a semver tag like `v0.1.0` or
+  `v0.2.0-rc.1` is pushed. It builds macOS, Linux and Windows binaries (amd64 and arm64), with the
+  version stamped in through `-X main.version`. It then creates a GitHub release with the bare
+  binaries, archives (binary + README + SPEC + examples) and `checksums.txt`. Tags with
+  a `-` suffix are marked as pre-releases.
 
 ---
 
