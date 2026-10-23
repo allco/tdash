@@ -125,7 +125,8 @@ working directories) are relative to the config file.
 }
 ```
 
-[examples/demo.json](examples/demo.json) uses every feature below.
+[examples/demo.json](examples/demo.json) uses every feature below. Every field, with its type and
+default, is listed in [docs/config.md](docs/config.md).
 
 ### Layout
 

@@ -15,8 +15,9 @@ fits together, and what was learned along the way.
 - End commit messages with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Before committing: `gofmt -l .` (must print nothing), `go vet ./...`, `go test ./...`. The
   post-merge workflow runs the same checks.
-- Keep SPEC.md and README.md in step with the code. When behaviour changes, update both, plus the
-  `--help` text in `main.go` and the help overlay (`helpKeys` in `ui.go`) if keys change.
+- Keep SPEC.md, README.md and the field reference `docs/config.md` in step with the code. When
+  behaviour changes, update all three, plus the `--help` text in `main.go` and the help overlay
+  (`helpKeys` in `ui.go`) if keys change.
 - The sibling project `../tglab` is the style reference: flat `package main`, the splash/logo
   approach, the README layout, the release workflow and the screenshot pipeline all come from it.
   When the user says "like tglab", look there first.
