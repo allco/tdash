@@ -81,6 +81,11 @@ Everything is in one `package main` at the root:
   (`fileStamp`). Polling was chosen over fsnotify because editors that save by renaming break
   file-system watches. An invalid config keeps the old dashboard and shows the error.
 - The model is a pointer (`*model`) on purpose. `View()` writes render sizes into `paneState`.
+- **The selected table row** is styled like tglab's: a pink `▌` (212) in a one-cell margin that
+  every table line has, bold light-yellow text (229; a cell with a `colors` match keeps its color,
+  in bold), and no background. Cells cut with `…` wrap within their column (`expandRow`), and a
+  row that grows is framed by grey (241) `┄` dividers. `tablePane.lines` maps body lines back to
+  rows for clicks, and `content.cursorEnd` makes the frame scroll the whole block into view.
 
 ## Gotchas learned the hard way
 
@@ -98,8 +103,9 @@ Everything is in one `package main` at the root:
     `~/.cache/tdash`), which has braille and every glyph tdash uses at one width. DejaVu Sans Mono
     does **not** have braille.
   - `freeze` drops **reverse video** and the **basic background colors** (SGR 40–47, 100–107).
-    The UI therefore uses explicit colors for the selected row (bg 24) and the focused title (bg =
-    accent), and `freezeColors` in `screenshot_test.go` rewrites basic backgrounds to `48;5;N`.
+    The UI therefore uses explicit colors for the focused title (bg = accent), and `freezeColors`
+    in `screenshot_test.go` rewrites basic backgrounds to `48;5;N`. The selected table row has no
+    background at all; it is styled like tglab's (see below).
   - Emoji (✅ 🚂 💬 …) take two cells in a terminal, but fonts draw them at other widths, which
     shifts everything after them. `scripts/svg-grid.py` rewrites each SVG so every run of text sits
     at its exact cell (an explicit `x` per run, `east_asian_width` W/F = two cells, matching

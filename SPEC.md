@@ -305,8 +305,9 @@ Data is an array of objects or an array of arrays.
 
 - Columns take their natural width, up to 60 cells (the last column is never capped). A longer
   cell is cut with `…`. A table wider than its pane scrolls sideways (§6.1).
-- The selected row expands: every cut cell wraps within its column so its full text shows, and
-  `┄` dividers set the taller row apart from its neighbours (as tglab does).
+- The selected row looks like tglab's: a `▌` mark in the left margin and bold light-yellow text,
+  with no background. It expands: every cut cell wraps within its column so its full text shows,
+  and `┄` dividers set the taller row apart from its neighbours.
 - `colors` maps cell values to colors. A key matches the whole value, or else the start of it,
   so `{"✅": "green"}` colors `✅ ready to merge`. The longest matching key wins.
 - The header row stays visible while scrolling (sticky header).

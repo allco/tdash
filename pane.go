@@ -242,7 +242,9 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 		}
 	}
 	const gap = "  "
-	total := 0
+	// Every line starts with a one-cell margin for the selection mark, as in tglab.
+	const margin = 1 + len(gap)
+	total := margin
 	for _, wd := range widths {
 		total += wd + len(gap)
 	}
@@ -267,18 +269,33 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 	body := make([]string, 0, len(p.rows))
 	p.lines = p.lines[:0]
 	cur, curEnd := -1, 0
-	selStyle := lipgloss.NewStyle().Background(lipgloss.Color("24")).Foreground(lipgloss.Color("231")).Bold(true)
-	divider := lipgloss.NewStyle().Faint(true).Render(strings.Repeat("┄", total))
+	blank := strings.Repeat(" ", margin)
+	// The selected row looks like tglab's: a pink mark in the margin, bold light-yellow text (cells
+	// with a color keep it, in bold), and grey dividers around a row that expanded.
+	mark := lipgloss.NewStyle().Foreground(lipgloss.Color("212")).Render("▌") + gap
+	selStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
+	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render(strings.Repeat("┄", total))
 	for r, row := range p.rows {
 		if focused && r == p.sel {
 			cur = len(body)
-			block := p.expandRow(row, widths, cell, gap)
+			block := p.expandRow(row, widths, cell)
 			if len(block) > 1 && r > 0 {
 				body = append(body, divider)
 				p.lines = append(p.lines, -1)
 			}
-			for _, line := range block {
-				body = append(body, selStyle.Render(line+strings.Repeat(" ", max(0, total-ansi.StringWidth(line)))))
+			for l, cells := range block {
+				for i, v := range row {
+					st := selStyle
+					if c, ok := cellColor(p.cols[i].Colors, v); ok {
+						st = st.Foreground(lipgloss.Color(colorOr(c, "")))
+					}
+					cells[i] = st.Render(cells[i])
+				}
+				prefix := blank
+				if l == 0 {
+					prefix = mark
+				}
+				body = append(body, prefix+strings.Join(cells, gap))
 				p.lines = append(p.lines, r)
 			}
 			if len(block) > 1 && r < len(p.rows)-1 {
@@ -295,16 +312,16 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 				cells[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(colorOr(c, ""))).Render(cells[i])
 			}
 		}
-		body = append(body, strings.Join(cells, gap))
+		body = append(body, blank+strings.Join(cells, gap))
 		p.lines = append(p.lines, r)
 	}
-	return content{header: []string{headStyle.Render(strings.Join(head, gap)), rule}, body: body,
+	return content{header: []string{blank + headStyle.Render(strings.Join(head, gap)), rule}, body: body,
 		cursor: cur, cursorEnd: curEnd}
 }
 
 // expandRow lays out the selected row so every cell shows its full text: a cell longer than its
-// column wraps onto more lines instead of being cut with "…".
-func (p *tablePane) expandRow(row []string, widths []int, cell func(string, int) string, gap string) []string {
+// column wraps onto more lines instead of being cut with "…". It returns each line's cells.
+func (p *tablePane) expandRow(row []string, widths []int, cell func(string, int) string) [][]string {
 	wrapped := make([][]string, len(row))
 	n := 1
 	for i, v := range row {
@@ -314,17 +331,16 @@ func (p *tablePane) expandRow(row []string, widths []int, cell func(string, int)
 		}
 		n = max(n, len(wrapped[i]))
 	}
-	lines := make([]string, n)
+	lines := make([][]string, n)
 	for l := range lines {
-		cells := make([]string, len(row))
+		lines[l] = make([]string, len(row))
 		for i := range row {
 			s := ""
 			if l < len(wrapped[i]) {
 				s = strings.TrimRight(wrapped[i][l], " ")
 			}
-			cells[i] = cell(s, i)
+			lines[l][i] = cell(s, i)
 		}
-		lines[l] = strings.Join(cells, gap)
 	}
 	return lines
 }
