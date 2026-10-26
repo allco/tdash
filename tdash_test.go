@@ -203,6 +203,38 @@ func TestMarkdownContinuations(t *testing.T) {
 	}
 }
 
+func TestSelectedRowExpands(t *testing.T) {
+	long := strings.Repeat("word ", 20) + "end"
+	p := newPane(PaneConfig{Type: "table"}, "81").(*tablePane)
+	data, _ := decodeJSON([]byte(`[{"a": "one", "b": "x"}, {"a": "` + long + `", "b": "y"}, {"a": "three", "b": "z"}]`))
+	if err := p.SetData(data); err != nil {
+		t.Fatal(err)
+	}
+	if c := p.Content(80, 20, true); len(c.body) != 3 {
+		t.Fatalf("nothing selected: %d lines, want 3", len(c.body))
+	}
+	p.sel = 1
+	c := p.Content(80, 20, true)
+	if len(c.body) < 6 { // divider, at least two lines of the row, divider, two other rows
+		t.Fatalf("selected row didn't expand: %d lines", len(c.body))
+	}
+	text := ansi.Strip(strings.Join(c.body, "\n"))
+	if !strings.Contains(text, "end") || strings.Contains(text, "…") {
+		t.Errorf("the selected cell isn't shown in full:\n%s", text)
+	}
+	if c.cursor != 1 || c.cursorEnd != len(c.body)-2 {
+		t.Errorf("cursor block %d–%d, want 1–%d", c.cursor, c.cursorEnd, len(c.body)-2)
+	}
+	p.Click(len(c.body) - 1)
+	if p.sel != 2 {
+		t.Errorf("click on the last line selected row %d, want 2", p.sel)
+	}
+	p.Click(0)
+	if p.sel != 0 {
+		t.Errorf("click on the first line selected row %d, want 0", p.sel)
+	}
+}
+
 func TestCellColor(t *testing.T) {
 	colors := map[string]string{"✅": "green", "✅ ready": "cyan", "down": "red"}
 	for v, want := range map[string]string{"✅ clean": "green", "✅ ready to merge": "cyan", "down": "red", "up": ""} {

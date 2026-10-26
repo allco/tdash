@@ -65,7 +65,7 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | `tab` / `shift+tab` | focus the next / previous pane |
 | `esc` | unzoom, or remove the focus |
 | `↑` `↓` `←` `→` | scroll the focused pane, or the dashboard when nothing is focused |
-| | in a table, `↑` `↓` select a row; in a chart, `←` `→` move the cursor |
+| | in a table, `↑` `↓` select a row (it expands to show cut cells in full); in a chart, `←` `→` move the cursor |
 | `pgup` `pgdn` `home` `end` | scroll by a page, or to the start / end |
 | `enter` | run the action of the selected row (open a URL, run a command, copy) |
 | `z` | zoom the focused pane to the full screen |

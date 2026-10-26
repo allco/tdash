@@ -86,8 +86,9 @@ The data can be:
 - an array of arrays, where the first array is the header;
 - `{"columns": […], "rows": […]}`.
 
-Columns take their natural width, up to 60 cells. The last column is never capped. A table wider
-than its pane scrolls sideways. The header row stays visible while you scroll.
+Columns take their natural width, up to 60 cells. The last column is never capped. A longer cell
+is cut with `…`, except in the selected row: it expands to show every cell in full, wrapped within
+its column, between `┄` dividers. A table wider than its pane scrolls sideways. The header row stays visible while you scroll.
 
 #### Column
 

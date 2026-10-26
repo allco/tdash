@@ -828,6 +828,10 @@ func (m *model) frame(i, w, h int) []string {
 		ps.wide = max(ps.wide, ansi.StringWidth(l))
 	}
 	if ps.follow && c.cursor >= 0 {
+		// Bring the whole cursor block into view; when it is taller than the pane, its top wins.
+		if end := max(c.cursor, c.cursorEnd); end >= ps.yoff+ps.bodyH {
+			ps.yoff = end - ps.bodyH + 1
+		}
 		if c.cursor < ps.yoff {
 			ps.yoff = c.cursor
 		} else if c.cursor >= ps.yoff+ps.bodyH {

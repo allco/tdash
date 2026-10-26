@@ -19,6 +19,9 @@ type content struct {
 	header []string // stays at the top while the body scrolls up and down (table headers)
 	body   []string
 	cursor int // body line to keep in view after a key moved it, -1 for none
+	// cursorEnd is the last line of the cursor's block (an expanded table row), kept in view too
+	// when it fits. Zero means the block is the cursor line alone.
+	cursorEnd int
 }
 
 // Pane is one kind of pane: it turns data into content and handles its own keys.
@@ -128,6 +131,7 @@ type tablePane struct {
 	rows   [][]string
 	raw    []any // the row items, for actions
 	sel    int   // selected row, -1 for none
+	lines  []int // the row each body line of the last render shows, -1 for a divider
 }
 
 func (p *tablePane) SetData(v any) error {
@@ -260,30 +264,69 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 	headStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.accent))
 	rule := lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", total))
 
-	body := make([]string, len(p.rows))
+	body := make([]string, 0, len(p.rows))
+	p.lines = p.lines[:0]
+	cur, curEnd := -1, 0
 	selStyle := lipgloss.NewStyle().Background(lipgloss.Color("24")).Foreground(lipgloss.Color("231")).Bold(true)
+	divider := lipgloss.NewStyle().Faint(true).Render(strings.Repeat("┄", total))
 	for r, row := range p.rows {
+		if focused && r == p.sel {
+			cur = len(body)
+			block := p.expandRow(row, widths, cell, gap)
+			if len(block) > 1 && r > 0 {
+				body = append(body, divider)
+				p.lines = append(p.lines, -1)
+			}
+			for _, line := range block {
+				body = append(body, selStyle.Render(line+strings.Repeat(" ", max(0, total-ansi.StringWidth(line)))))
+				p.lines = append(p.lines, r)
+			}
+			if len(block) > 1 && r < len(p.rows)-1 {
+				body = append(body, divider)
+				p.lines = append(p.lines, -1)
+			}
+			curEnd = len(body) - 1
+			continue
+		}
 		cells := make([]string, len(row))
 		for i, v := range row {
 			cells[i] = cell(v, i)
-		}
-		if focused && r == p.sel {
-			line := strings.Join(cells, gap)
-			body[r] = selStyle.Render(line + strings.Repeat(" ", max(0, total-ansi.StringWidth(line))))
-			continue
-		}
-		for i, v := range row {
 			if c, ok := cellColor(p.cols[i].Colors, v); ok {
 				cells[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(colorOr(c, ""))).Render(cells[i])
 			}
 		}
-		body[r] = strings.Join(cells, gap)
+		body = append(body, strings.Join(cells, gap))
+		p.lines = append(p.lines, r)
 	}
-	cur := -1
-	if focused {
-		cur = p.sel
+	return content{header: []string{headStyle.Render(strings.Join(head, gap)), rule}, body: body,
+		cursor: cur, cursorEnd: curEnd}
+}
+
+// expandRow lays out the selected row so every cell shows its full text: a cell longer than its
+// column wraps onto more lines instead of being cut with "…".
+func (p *tablePane) expandRow(row []string, widths []int, cell func(string, int) string, gap string) []string {
+	wrapped := make([][]string, len(row))
+	n := 1
+	for i, v := range row {
+		wrapped[i] = []string{v}
+		if ansi.StringWidth(v) > widths[i] {
+			wrapped[i] = strings.Split(ansi.Wrap(v, widths[i], ""), "\n")
+		}
+		n = max(n, len(wrapped[i]))
 	}
-	return content{header: []string{headStyle.Render(strings.Join(head, gap)), rule}, body: body, cursor: cur}
+	lines := make([]string, n)
+	for l := range lines {
+		cells := make([]string, len(row))
+		for i := range row {
+			s := ""
+			if l < len(wrapped[i]) {
+				s = strings.TrimRight(wrapped[i][l], " ")
+			}
+			cells[i] = cell(s, i)
+		}
+		lines[l] = strings.Join(cells, gap)
+	}
+	return lines
 }
 
 // cellColor finds a cell's color: the key equal to the value, or else the longest key the value
@@ -337,8 +380,8 @@ func (p *tablePane) Key(k string, bodyH int) bool {
 }
 
 func (p *tablePane) Click(line int) {
-	if line >= 0 && line < len(p.rows) {
-		p.sel = line
+	if line >= 0 && line < len(p.lines) && p.lines[line] >= 0 {
+		p.sel = p.lines[line]
 	}
 }
 
