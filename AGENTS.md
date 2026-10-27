@@ -56,7 +56,7 @@ Everything is in one `package main` at the root:
 | `screenshot_test.go` | `TestScreenshots` (only with `TDASH_SCREENSHOTS=<dir>`), made-up demo data, `freezeColors` |
 | `examples/` | `demo.json` (uses every feature), data files, `scripts/metrics.sh` |
 | `examples/agents/` | an AI agents status board: `status.md` (made up) → `status2json.py` → `agents.json` |
-| `scripts/` | `screenshots.sh` and its helper `svg-grid.py` |
+| `scripts/` | `build.sh` (version from `git describe`), `install.sh` (into `~/bin` or `$INSTALL_DIR`), `screenshots.sh` and its helper `svg-grid.py` |
 
 ### How the pieces talk
 

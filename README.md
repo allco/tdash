@@ -38,7 +38,8 @@ go install github.com/allco/tdash@latest
 Or from a checkout:
 
 ```sh
-go build -o tdash .
+scripts/build.sh      # ./tdash, with `git describe` as its --version
+scripts/install.sh    # builds it into ~/bin (or $INSTALL_DIR)
 ```
 
 ## Run
@@ -244,6 +245,7 @@ terminal cell, so emoji take two cells as they do in a terminal. The PNGs are st
 | `markup.go` | the Markdown renderer and color tags |
 | `ui.go` | the Bubble Tea app: refresh timers, focus, keys, mouse, the pane frame, the status line |
 | `splash.go` | the start-up splash and the logo |
+| `scripts/build.sh`, `scripts/install.sh` | build with the version from `git describe`; install into `~/bin` |
 | `screenshot_test.go`, `scripts/screenshots.sh`, `scripts/svg-grid.py` | renders the README screenshots from made-up data |
 | `examples/` | the demo dashboard, its data files and a supplier script |
 | `examples/agents/` | the agents status board: a made-up `status.md`, `status2json.py` and `agents.json` |
