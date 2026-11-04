@@ -329,4 +329,10 @@ func TestMouseToggle(t *testing.T) {
 	if m.noMouse || strings.Contains(m.statusLine(), "mouse off") {
 		t.Fatalf("after m m: noMouse=%v, status %q", m.noMouse, m.statusLine())
 	}
+	m.key("tab")
+	m.key("m")
+	m.key("esc")
+	if m.noMouse || m.focus < 0 {
+		t.Fatalf("after m esc: noMouse=%v, focus %d (esc should only turn the mouse on)", m.noMouse, m.focus)
+	}
 }

@@ -404,7 +404,7 @@ func (m *model) key(k string) tea.Cmd {
 	case "m", "M":
 		m.noMouse = !m.noMouse
 		if m.noMouse {
-			return tea.Batch(tea.DisableMouse, m.setFlash("mouse off: select text with it, m to turn back on", false))
+			return tea.Batch(tea.DisableMouse, m.setFlash("mouse off: select text with it, m or esc to turn back on", false))
 		}
 		return tea.Batch(tea.EnableMouseCellMotion, m.setFlash("mouse on", false))
 	case "tab", "shift+tab":
@@ -423,6 +423,10 @@ func (m *model) key(k string) tea.Cmd {
 		}
 		m.showFocused()
 	case "esc":
+		if m.noMouse {
+			m.noMouse = false
+			return tea.Batch(tea.EnableMouseCellMotion, m.setFlash("mouse on", false))
+		}
 		if m.zoom {
 			m.zoom = false
 		} else {
@@ -949,14 +953,14 @@ func (m *model) statusLine() string {
 
 var helpKeys = [][2]string{
 	{"tab / shift+tab", "focus the next / previous pane"},
-	{"esc", "unzoom, or remove the focus"},
+	{"esc", "mouse back on, else unzoom, else remove the focus"},
 	{"↑ ↓ ← →", "scroll the focused pane (or the dashboard)"},
 	{"pgup pgdn home end", "scroll by a page, to the start / end"},
 	{"", "tables: ↑↓ select a row · charts: ←→ move the cursor"},
 	{"enter", "run the action of the selected row"},
 	{"z", "zoom the focused pane to the full screen"},
 	{"mouse", "click focuses, wheel scrolls (shift+wheel sideways)"},
-	{"m", "mouse on / off (off: the terminal selects text)"},
+	{"m", "mouse on / off (off: the terminal selects text; esc turns it on)"},
 	{"r", "reload the config and all data"},
 	{"p", "pause / resume auto-refresh"},
 	{"?", "this help"},

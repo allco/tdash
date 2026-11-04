@@ -64,7 +64,7 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | Key | Action |
 |---|---|
 | `tab` / `shift+tab` | focus the next / previous pane |
-| `esc` | unzoom, or remove the focus |
+| `esc` | turn the mouse back on (after `m`), else unzoom, else remove the focus |
 | `↑` `↓` `←` `→` | scroll the focused pane, or the dashboard when nothing is focused |
 | | in a table, `↑` `↓` select a row (it expands to show cut cells in full); in a chart, `←` `→` move the cursor |
 | `pgup` `pgdn` `home` `end` | scroll by a page, or to the start / end |
@@ -83,7 +83,7 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | `shift`+wheel, sideways swipe | scroll the pane sideways |
 
 To select text with the mouse, press `m` (the status line shows "mouse off"), select, and press
-`m` again. `--no-mouse` starts with the mouse off. Most terminals also select with `shift`+drag
+`m` or `esc`. `--no-mouse` starts with the mouse off. Most terminals also select with `shift`+drag
 while tdash has the mouse.
 
 Content wider or taller than its pane scrolls inside the pane. A thick thumb in the right border

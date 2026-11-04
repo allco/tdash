@@ -98,7 +98,7 @@ The width formula then becomes `available width / Σ spans × span`.
 | `r` / `R` | Re-read the config and all data files |
 | `Tab` | Focus the next pane (row-major order) |
 | `Shift+Tab` | Focus the previous pane |
-| `Esc` | Remove focus. Also closes any open overlay (help, detail view) |
+| `Esc` | Remove focus. Also closes any open overlay (help, detail view), and first turns mouse capture back on after `m` |
 | `?` | Show a help overlay with all key bindings *(recommended)* |
 | `p` | Pause or resume auto-refresh *(recommended)* |
 | `m` | Mouse capture on / off; off leaves the mouse to the terminal for selecting text (§3.4) |
@@ -117,7 +117,7 @@ The width formula then becomes `available width / Σ spans × span`.
 
 ### 3.4 Mouse
 
-The mouse is captured by default. `m` switches capture off and on while tdash runs; when it is
+The mouse is captured by default. `m` switches capture off and on while tdash runs (`Esc` also turns it back on); when it is
 off the terminal has the mouse, so text can be selected, and the status line shows "mouse off".
 `--no-mouse` starts with capture off.
 

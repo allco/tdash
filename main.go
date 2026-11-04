@@ -84,7 +84,7 @@ The dashboard reloads by itself when the config file changes.
 
 Keys:
   tab, shift+tab    focus the next / previous pane
-  esc               unzoom, or remove the focus
+  esc               turn the mouse back on, else unzoom, else remove the focus
   arrows            scroll the focused pane, or the dashboard when nothing is focused
                     (tables: up/down select a row; charts: left/right move the cursor)
   pgup/pgdn/home/end
@@ -94,6 +94,7 @@ Keys:
   r                 reload the config and all data
   p                 pause / resume auto-refresh
   m                 mouse on / off; off leaves it to the terminal, so text can be selected
+                    (esc also turns it back on)
   ?                 help
   q, ctrl+c         quit
 
