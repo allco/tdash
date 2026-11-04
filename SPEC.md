@@ -101,6 +101,7 @@ The width formula then becomes `available width / Σ spans × span`.
 | `Esc` | Remove focus. Also closes any open overlay (help, detail view) |
 | `?` | Show a help overlay with all key bindings *(recommended)* |
 | `p` | Pause or resume auto-refresh *(recommended)* |
+| `m` | Mouse capture on / off; off leaves the mouse to the terminal for selecting text (§3.4) |
 | `↑ ↓` / `PgUp PgDn` (no focus) | Scroll the dashboard vertically |
 | `z` | Zoom: show the focused pane full-screen, `Esc` to go back |
 
@@ -116,7 +117,9 @@ The width formula then becomes `available width / Σ spans × span`.
 
 ### 3.4 Mouse
 
-The mouse is captured by default; `--no-mouse` leaves it to the terminal, so text can be selected.
+The mouse is captured by default. `m` switches capture off and on while tdash runs; when it is
+off the terminal has the mouse, so text can be selected, and the status line shows "mouse off".
+`--no-mouse` starts with capture off.
 
 | Mouse | Action |
 |-------|--------|

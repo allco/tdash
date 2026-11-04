@@ -52,7 +52,9 @@ func main() {
 	if !*noMouse {
 		opts = append(opts, tea.WithMouseCellMotion())
 	}
-	if _, err := tea.NewProgram(newModel(path, cfg), opts...).Run(); err != nil {
+	m := newModel(path, cfg)
+	m.noMouse = *noMouse
+	if _, err := tea.NewProgram(m, opts...).Run(); err != nil {
 		fail(err)
 	}
 }
@@ -91,10 +93,11 @@ Keys:
   z                 zoom the focused pane to the full screen
   r                 reload the config and all data
   p                 pause / resume auto-refresh
+  m                 mouse on / off; off leaves it to the terminal, so text can be selected
   ?                 help
   q, ctrl+c         quit
 
 Mouse: click focuses a pane (and selects a table row), the wheel scrolls, shift+wheel scrolls
-sideways.
+sideways. Most terminals also select text with shift+drag while tdash has the mouse.
 `, version, defaultConfig)
 }

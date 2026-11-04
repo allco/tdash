@@ -72,6 +72,7 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | `z` | zoom the focused pane to the full screen |
 | `r` | reload the config and all data |
 | `p` | pause / resume auto-refresh |
+| `m` | mouse on / off; off leaves the mouse to the terminal, so you can select text |
 | `?` | help |
 | `q` / `ctrl+c` | quit |
 
@@ -80,6 +81,10 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | click | focus the pane; in a table, also select the row |
 | wheel | scroll the pane under the pointer; if it has nothing to scroll, scroll the dashboard |
 | `shift`+wheel, sideways swipe | scroll the pane sideways |
+
+To select text with the mouse, press `m` (the status line shows "mouse off"), select, and press
+`m` again. `--no-mouse` starts with the mouse off. Most terminals also select with `shift`+drag
+while tdash has the mouse.
 
 Content wider or taller than its pane scrolls inside the pane. A thick thumb in the right border
 or the bottom border shows where you are. The dashboard itself only scrolls vertically. That

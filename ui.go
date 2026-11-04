@@ -92,11 +92,12 @@ type model struct {
 	sources map[string]*source
 	gen     int // bumped on reload; messages from an older generation are dropped
 
-	focus  int // focused pane, -1 for none
-	offset int // first dashboard line on screen
-	zoom   bool
-	help   bool
-	paused bool
+	focus   int // focused pane, -1 for none
+	offset  int // first dashboard line on screen
+	zoom    bool
+	help    bool
+	paused  bool
+	noMouse bool // the terminal has the mouse, so text can be selected
 
 	splash   bool
 	splashUp bool
@@ -400,6 +401,12 @@ func (m *model) key(k string) tea.Cmd {
 			return m.setFlash("auto-refresh paused", false)
 		}
 		return m.setFlash("auto-refresh resumed", false)
+	case "m", "M":
+		m.noMouse = !m.noMouse
+		if m.noMouse {
+			return tea.Batch(tea.DisableMouse, m.setFlash("mouse off: select text with it, m to turn back on", false))
+		}
+		return tea.Batch(tea.EnableMouseCellMotion, m.setFlash("mouse on", false))
 	case "tab", "shift+tab":
 		if len(m.panes) == 0 {
 			return nil
@@ -921,6 +928,9 @@ func (m *model) statusLine() string {
 	case m.focus >= 0:
 		hints = "↑↓←→ scroll · z zoom · esc unfocus · ? help"
 	}
+	if m.noMouse {
+		hints = "mouse off · " + hints
+	}
 	if m.paused {
 		hints = "paused · " + hints
 	}
@@ -946,6 +956,7 @@ var helpKeys = [][2]string{
 	{"enter", "run the action of the selected row"},
 	{"z", "zoom the focused pane to the full screen"},
 	{"mouse", "click focuses, wheel scrolls (shift+wheel sideways)"},
+	{"m", "mouse on / off (off: the terminal selects text)"},
 	{"r", "reload the config and all data"},
 	{"p", "pause / resume auto-refresh"},
 	{"?", "this help"},

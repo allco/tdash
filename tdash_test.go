@@ -311,3 +311,22 @@ func TestWrapKeepsStyledWordsTogether(t *testing.T) {
 		t.Errorf("lines = %q", plain)
 	}
 }
+
+// TestMouseToggle checks that m hands the mouse to the terminal and takes it back.
+func TestMouseToggle(t *testing.T) {
+	cfg, err := loadConfig("examples/demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel("examples/demo.json", cfg)
+	m.splash = false
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.key("m")
+	if !m.noMouse || !strings.Contains(m.statusLine(), "mouse off") {
+		t.Fatalf("after m: noMouse=%v, status %q", m.noMouse, m.statusLine())
+	}
+	m.key("m")
+	if m.noMouse || strings.Contains(m.statusLine(), "mouse off") {
+		t.Fatalf("after m m: noMouse=%v, status %q", m.noMouse, m.statusLine())
+	}
+}
