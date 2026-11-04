@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -133,7 +134,12 @@ func TestConfigErrors(t *testing.T) {
 		`{"layout": {"rows": [{"panes": [{"type": "table", "data": {"file": "a", "url": "b"}}]}]}}`: "want one source",
 		`{"refresh": "1ms", "layout": {"rows": [{"panes": [{"type": "table"}]}]}}`:                  "below the minimum",
 		`{"layout": {"rows": []}}`: "at least one row",
-		`{"layout": {"rows": [{"panes": [{"type": "table", "colour": 1}]}]}}`: `unknown field "colour"`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "colour": 1}]}]}}`:                                     `unknown field "colour"`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "columns": [{"key": "a", "width": "wide"}]}]}]}}`:      `unknown value "wide"`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "columns": [{"key": "a", "width": 0}]}]}]}}`:           `width: want a whole number`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "columns": [{"key": "a", "cut": "left"}]}]}]}}`:        `columns[0].cut: unknown value "left"`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "columns": [{"key": "a", "width": 9, "min": 3}]}]}]}}`: `columns[0].min and max: not used with a fixed width`,
+		`{"layout": {"rows": [{"panes": [{"type": "table", "columns": [{"key": "a", "min": 9, "max": 3}]}]}]}}`:   `columns[0].max: want ≥ min`,
 	}
 	dir := t.TempDir()
 	for src, want := range cases {
@@ -334,5 +340,81 @@ func TestMouseToggle(t *testing.T) {
 	m.key("esc")
 	if m.noMouse || m.focus < 0 {
 		t.Fatalf("after m esc: noMouse=%v, focus %d (esc should only turn the mouse on)", m.noMouse, m.focus)
+	}
+}
+
+func TestColWidths(t *testing.T) {
+	n := func(v int) *int { return &v }
+	fr := func(f float64) ColWidth { return ColWidth{FR: f} }
+	cases := []struct {
+		name    string
+		cols    []Column
+		natural []int
+		avail   int
+		want    []int
+	}{
+		{"fixed, auto and shares split what is left 2:1",
+			[]Column{{Width: ColWidth{Cells: 20}}, {}, {Width: fr(2)}, {Width: fr(1)}},
+			[]int{30, 8, 200, 200}, 100, []int{20, 8, 48, 24}},
+		{"a share grows no wider than its content; the rest goes to the other share",
+			[]Column{{Width: fr(1)}, {Width: fr(1)}}, []int{6, 200}, 100, []int{6, 94}},
+		{"min holds when the pane is narrow, and the table overflows",
+			[]Column{{Width: ColWidth{Cells: 30}}, {Width: fr(1), Min: n(10)}}, []int{30, 50}, 20, []int{30, 10}},
+		{"max caps a share",
+			[]Column{{Width: fr(1), Max: n(15)}, {Width: fr(1)}}, []int{200, 200}, 100, []int{15, 85}},
+		{"auto keeps the 60 cap but not on the last column; max replaces it, 0 removes it",
+			[]Column{{}, {Max: n(0)}, {Max: n(10)}, {}}, []int{90, 90, 90, 90}, 400, []int{60, 90, 10, 90}},
+		{"shares round to exactly what is left",
+			[]Column{{Width: fr(1)}, {Width: fr(1)}, {Width: fr(1)}}, []int{99, 99, 99}, 50, []int{17, 16, 17}},
+		{"a share never goes below 3 cells without a min",
+			[]Column{{Width: ColWidth{Cells: 50}}, {Width: fr(1)}}, []int{50, 40}, 40, []int{50, 3}},
+	}
+	for _, c := range cases {
+		if got := colWidths(c.cols, c.natural, c.avail); !slices.Equal(got, c.want) {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestCutCell(t *testing.T) {
+	s := "feature/login-fix"
+	for mode, want := range map[string]string{
+		"":       "feature/l…",
+		"end":    "feature/l…",
+		"start":  "…login-fix",
+		"middle": "featu…-fix",
+	} {
+		if got := cutCell(s, 10, mode); got != want {
+			t.Errorf("cut %q: got %q, want %q", mode, got, want)
+		}
+	}
+	if got := cutCell("short", 10, "middle"); got != "short" {
+		t.Errorf("a cell that fits was cut: %q", got)
+	}
+}
+
+// TestShareColumnFillsPane checks that a table with a share column fits its pane, cuts the long
+// cell, and still shows it in full when its row is selected.
+func TestShareColumnFillsPane(t *testing.T) {
+	long := strings.Repeat("word ", 30) + "end"
+	cfg := PaneConfig{Type: "table", Columns: []Column{{Key: "a", Width: ColWidth{Cells: 6}}, {Key: "b", Width: ColWidth{FR: 1}}}}
+	p := newPane(cfg, "81").(*tablePane)
+	data, _ := decodeJSON([]byte(`[{"a": "one", "b": "` + long + `"}, {"a": "two", "b": "x"}]`))
+	if err := p.SetData(data); err != nil {
+		t.Fatal(err)
+	}
+	c := p.Content(50, 20, true)
+	for _, l := range append(c.header, c.body...) {
+		if w := ansi.StringWidth(l); w > 50 {
+			t.Errorf("line is %d cells wide, want ≤ 50: %q", w, ansi.Strip(l))
+		}
+	}
+	p.sel = -1
+	if text := ansi.Strip(strings.Join(p.Content(50, 20, true).body, "\n")); !strings.Contains(text, "…") {
+		t.Errorf("the long cell isn't cut:\n%s", text)
+	}
+	p.sel = 0
+	if text := ansi.Strip(strings.Join(p.Content(50, 20, true).body, "\n")); !strings.Contains(text, "end") {
+		t.Errorf("the selected row doesn't show the long cell in full:\n%s", text)
 	}
 }

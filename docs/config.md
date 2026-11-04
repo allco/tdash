@@ -86,7 +86,9 @@ The data can be:
 - an array of arrays, where the first array is the header;
 - `{"columns": […], "rows": […]}`.
 
-Columns take their natural width, up to 60 cells. The last column is never capped. A longer cell
+By default a column takes its natural width (its longest cell), up to 60 cells; the last column
+is never capped. A column's `width` changes that: a fixed number of cells, or a share of the
+space the other columns leave (see [Column widths](#column-widths)). A longer cell
 is cut with `…`, except in the selected row (marked with `▌`, in bold): it expands to show every
 cell in full, wrapped within its column, between `┄` dividers. A table wider than its pane scrolls sideways. The header row stays visible while you scroll.
 
@@ -98,6 +100,35 @@ cell in full, wrapped within its column, between `┄` dividers. A table wider t
 | `title` | string | `key` | Header text |
 | `align` | `"left"` \| `"right"` | right for numbers, else left | |
 | `colors` | object of value → color | none | Colors a cell by its value. A key matches the whole value, or else its start, so `{"✅": "green"}` colors `✅ ready`. The longest matching key wins |
+| `width` | integer ≥ 1 \| `"auto"` \| `"Nfr"` | `"auto"` | A fixed width in cells; the natural width; or a share of the space left, like `"2fr"` |
+| `min` | integer ≥ 1 | `3` for shares | The narrowest an auto or share column gets. Not with a fixed `width` |
+| `max` | integer ≥ 0 | `60` for auto, but not on the last column | The widest an auto or share column gets; `0`: no cap. Not with a fixed `width` |
+| `cut` | `"end"` \| `"start"` \| `"middle"` | `"end"` | Where `…` goes in a cut cell: `start` suits paths and branches, `middle` IDs and URLs |
+
+##### Column widths
+
+Widths are in cells: one cell is one character of ordinary text (CJK characters and most emoji
+take two). They are worked out each time the table is drawn, so they follow the pane's width
+when the terminal is resized or the pane is zoomed:
+
+1. Fixed columns (`"width": 12`) take their width.
+2. Auto columns take their natural width, within `min` and `max`.
+3. Share columns split what is left by their numbers: `"2fr"` next to `"1fr"` gets two thirds.
+   A share column grows no wider than its longest cell (or `max`); what it doesn't need goes to
+   the other share columns. It never gets narrower than `min` (default 3).
+
+A table with a share column fills its pane, and scrolls sideways only when the fixed columns and
+the `min` widths don't fit.
+
+```jsonc
+"columns": [
+  { "key": "name",    "width": 20 },
+  { "key": "status" },                                  // auto
+  { "key": "message", "width": "2fr" },
+  { "key": "branch",  "width": "1fr", "min": 10, "cut": "start" }
+]
+```
+
 
 ### `markdown`
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -83,6 +84,65 @@ type Column struct {
 	Title  string            `json:"title"`
 	Align  string            `json:"align"`
 	Colors map[string]string `json:"colors"`
+	Width  ColWidth          `json:"width"`
+	Min    *int              `json:"min"`
+	Max    *int              `json:"max"`
+	Cut    string            `json:"cut"`
+}
+
+// ColWidth is a column's width: a fixed number of cells, a share ("2fr") of the space the other
+// columns leave, or, as the zero value, "auto" (the width of the longest cell).
+type ColWidth struct {
+	Cells int
+	FR    float64
+}
+
+func (w *ColWidth) UnmarshalJSON(b []byte) error {
+	var n float64
+	if err := json.Unmarshal(b, &n); err == nil {
+		if n < 1 || n != float64(int(n)) {
+			return fmt.Errorf("width: want a whole number of cells ≥ 1, got %v", n)
+		}
+		*w = ColWidth{Cells: int(n)}
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return errors.New(`width: want a number of cells, "auto" or a share like "2fr"`)
+	}
+	if s == "" || s == "auto" {
+		*w = ColWidth{}
+		return nil
+	}
+	if num, ok := strings.CutSuffix(s, "fr"); ok {
+		if f, err := strconv.ParseFloat(num, 64); err == nil && f > 0 {
+			*w = ColWidth{FR: f}
+			return nil
+		}
+	}
+	return fmt.Errorf(`width: unknown value %q (want a number of cells, "auto" or a share like "2fr")`, s)
+}
+
+var cutModes = map[string]bool{"": true, "end": true, "start": true, "middle": true}
+
+// check validates the fields of a column that aren't checked while decoding.
+func (c Column) check() error {
+	if !cutModes[c.Cut] {
+		return fmt.Errorf("cut: unknown value %q (want end, start or middle)", c.Cut)
+	}
+	if c.Width.Cells > 0 && (c.Min != nil || c.Max != nil) {
+		return errors.New("min and max: not used with a fixed width")
+	}
+	if c.Min != nil && *c.Min < 1 {
+		return errors.New("min: want ≥ 1")
+	}
+	if c.Max != nil && *c.Max < 0 {
+		return errors.New("max: want ≥ 0 (0: no cap)")
+	}
+	if c.Min != nil && c.Max != nil && *c.Max > 0 && *c.Max < *c.Min {
+		return errors.New("max: want ≥ min")
+	}
+	return nil
 }
 
 // Action is what enter does on a selected item. Exactly one of Open, Run and Copy is set.
@@ -286,6 +346,11 @@ func (c *Config) validatePane(p *PaneConfig, at string) error {
 	}
 	if _, err := parseRefresh(p.Refresh); err != nil {
 		return fmt.Errorf("%s.refresh: %w", at, err)
+	}
+	for i, col := range p.Columns {
+		if err := col.check(); err != nil {
+			return fmt.Errorf("%s.columns[%d].%w", at, i, err)
+		}
 	}
 	if p.Action != nil {
 		n := 0

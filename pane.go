@@ -148,6 +148,11 @@ func (p *tablePane) SetData(v any) error {
 			if err := json.Unmarshal(b, &cols); err != nil {
 				return fmt.Errorf("table columns: %w", err)
 			}
+			for i, c := range cols {
+				if err := c.check(); err != nil {
+					return fmt.Errorf("table columns[%d].%w", i, err)
+				}
+			}
 		}
 	}
 	arr, ok := items.([]any)
@@ -219,31 +224,134 @@ func (p *tablePane) clampSel() {
 	}
 }
 
-const maxColWidth = 60
+const (
+	maxColWidth = 60 // the cap on an auto column, unless it sets max
+	minColWidth = 3  // the narrowest a share column gets, unless it sets min: a letter and "…"
+)
+
+// colWidths fits the columns to avail cells (the pane width less the margin and gaps): fixed
+// columns take their width, auto columns their natural width, and share columns ("fr") split
+// what is left. A share column grows no wider than its content; what it doesn't need goes to the
+// other share columns.
+func colWidths(cols []Column, natural []int, avail int) []int {
+	widths := make([]int, len(cols))
+	lo, hi := make([]int, len(cols)), make([]int, len(cols))
+	var shares []int
+	left := avail
+	for i, c := range cols {
+		switch {
+		case c.Width.Cells > 0:
+			widths[i] = c.Width.Cells
+		case c.Width.FR > 0:
+			lo[i], hi[i] = minColWidth, natural[i]
+			if c.Min != nil {
+				lo[i] = *c.Min
+			}
+			if c.Max != nil && *c.Max > 0 {
+				hi[i] = min(hi[i], *c.Max)
+			}
+			hi[i] = max(hi[i], lo[i])
+			shares = append(shares, i)
+			continue
+		default:
+			widths[i] = natural[i]
+			// The last column has nothing after it to push away, so it keeps its full width.
+			if c.Max != nil {
+				if *c.Max > 0 {
+					widths[i] = min(widths[i], *c.Max)
+				}
+			} else if i < len(cols)-1 {
+				widths[i] = min(widths[i], maxColWidth)
+			}
+			if c.Min != nil {
+				widths[i] = max(widths[i], *c.Min)
+			}
+		}
+		left -= widths[i]
+	}
+
+	// Columns whose share is above what they need, or below their min, are settled first; then
+	// the rest split what is left again.
+	for len(shares) > 0 {
+		var sum float64
+		for _, i := range shares {
+			sum += cols[i].Width.FR
+		}
+		share := func(i int) float64 { return float64(left) * cols[i].Width.FR / sum }
+		settle := func(pick func(i int) (int, bool)) bool {
+			rest := shares[:0:0]
+			for _, i := range shares {
+				if w, ok := pick(i); ok {
+					widths[i] = w
+					left -= w
+				} else {
+					rest = append(rest, i)
+				}
+			}
+			done := len(rest) < len(shares)
+			shares = rest
+			return done
+		}
+		if settle(func(i int) (int, bool) { return hi[i], share(i) >= float64(hi[i]) }) {
+			continue
+		}
+		if settle(func(i int) (int, bool) { return lo[i], share(i) < float64(lo[i]) }) {
+			continue
+		}
+		// Round so the widths add up to what is left exactly.
+		var acc float64
+		prev := 0
+		for _, i := range shares {
+			acc += share(i)
+			next := int(acc + 0.5)
+			widths[i] = next - prev
+			prev = next
+		}
+		break
+	}
+	return widths
+}
+
+// cutCell cuts s to width cells with "…" at the end, the start or the middle.
+func cutCell(s string, width int, mode string) string {
+	sw := ansi.StringWidth(s)
+	if sw <= width {
+		return s
+	}
+	if width <= 1 {
+		return ansi.Truncate("…", width, "")
+	}
+	switch mode {
+	case "start":
+		return "…" + ansi.TruncateLeft(s, sw-(width-1), "")
+	case "middle":
+		head := (width - 1 + 1) / 2
+		tail := width - 1 - head
+		return ansi.Truncate(s, head, "") + "…" + ansi.TruncateLeft(s, sw-tail, "")
+	}
+	return ansi.Truncate(s, width, "…")
+}
 
 func (p *tablePane) Content(w, h int, focused bool) content {
 	if len(p.cols) == 0 {
 		return content{body: []string{lipgloss.NewStyle().Faint(true).Render("no rows")}, cursor: -1}
 	}
-	widths := make([]int, len(p.cols))
+	natural := make([]int, len(p.cols))
 	numeric := make([]bool, len(p.cols))
 	for i, c := range p.cols {
-		widths[i] = ansi.StringWidth(colTitle(c))
+		natural[i] = ansi.StringWidth(colTitle(c))
 		numeric[i] = len(p.rows) > 0
 		for _, r := range p.rows {
-			widths[i] = max(widths[i], ansi.StringWidth(r[i]))
+			natural[i] = max(natural[i], ansi.StringWidth(r[i]))
 			if _, err := strconv.ParseFloat(r[i], 64); err != nil && r[i] != "" {
 				numeric[i] = false
 			}
-		}
-		// The last column has nothing after it to push away, so it keeps its full width.
-		if i < len(p.cols)-1 {
-			widths[i] = min(widths[i], maxColWidth)
 		}
 	}
 	const gap = "  "
 	// Every line starts with a one-cell margin for the selection mark, as in tglab.
 	const margin = 1 + len(gap)
+	widths := colWidths(p.cols, natural, w-margin-len(gap)*(len(p.cols)-1))
 	total := margin
 	for _, wd := range widths {
 		total += wd + len(gap)
@@ -251,7 +359,7 @@ func (p *tablePane) Content(w, h int, focused bool) content {
 	total = max(total-len(gap), w)
 
 	cell := func(s string, i int) string {
-		s = ansi.Truncate(s, widths[i], "…")
+		s = cutCell(s, widths[i], p.cols[i].Cut)
 		pad := strings.Repeat(" ", widths[i]-ansi.StringWidth(s))
 		if p.cols[i].Align == "right" || (p.cols[i].Align == "" && numeric[i]) {
 			return pad + s

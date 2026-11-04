@@ -148,13 +148,18 @@ Every pane has `type`, and optionally `title`, `span`, `data`, `refresh` and `ac
 
 | `type` | Data | Notes |
 |---|---|---|
-| `table` | an array of objects; an array of arrays (the first is the header); or `{"columns": […], "rows": […]}` | `columns`: `key`, `title`, `align` (`left`/`right`; numbers align right by default), `colors` |
+| `table` | an array of objects; an array of arrays (the first is the header); or `{"columns": […], "rows": […]}` | `columns`: `key`, `title`, `align` (`left`/`right`; numbers align right by default), `colors`, `width` (cells, `"auto"` or a share like `"2fr"`), `min`, `max`, `cut` (`end`/`start`/`middle`) |
 | `markdown` | a string; an array of lines; anything else is shown as JSON | headings, bold, italic, code, code blocks, lists, quotes, rules, links and color tags |
 | `chart` + `"chart": "spline"` | an array of numbers; `[{"y": …}]`; `{"name": [numbers], …}`; or `{"series": [{"name", "color", "values"}]}` | smooth braille lines; `min`, `max` fix the y axis |
 | `chart` + `"chart": "histogram"` | raw numbers (binned to fit, or into `bins`); `[{"label", "value"}]`; or `{"label": value, …}` | block-character bars |
 
 A table column's `colors` maps cell values to colors. A key matches the whole value, or else the
 start of it, so `{"✅": "green"}` colors `✅ ready to merge`.
+
+A column's `width` is a number of cells, `"auto"` (its longest cell, up to 60) or a share of the
+space left, like `"2fr"`. Share columns follow the pane's width, so a table with one fits its pane
+and grows when zoomed. A cut cell shows in full when its row is selected. See
+[docs/config.md](docs/config.md#column-widths).
 
 ### Colors in Markdown
 

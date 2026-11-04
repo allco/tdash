@@ -306,8 +306,13 @@ Data is an array of objects or an array of arrays.
 }
 ```
 
-- Columns take their natural width, up to 60 cells (the last column is never capped). A longer
-  cell is cut with `…`. A table wider than its pane scrolls sideways (§6.1).
+- Columns take their natural width, up to 60 cells (the last column is never capped). A column's
+  `width` overrides that: a number of cells (fixed), `"auto"` (the default) or a share like
+  `"2fr"` of the space the fixed and auto columns leave. `min` and `max` bound auto and share
+  columns (`max: 0` removes the cap). A share column grows no wider than its content, and the
+  rest goes to the other shares. Widths follow the pane, so zooming widens the share columns.
+- A longer cell is cut with `…`, at the end by default; `cut` puts it at the `start` or in the
+  `middle`. A table wider than its pane scrolls sideways (§6.1).
 - The selected row looks like tglab's: a `▌` mark in the left margin and bold light-yellow text,
   with no background. It expands: every cut cell wraps within its column so its full text shows,
   and `┄` dividers set the taller row apart from its neighbours.
