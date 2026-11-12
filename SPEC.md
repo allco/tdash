@@ -538,12 +538,30 @@ config.go      structs, JSONC loading, validation
 supplier.go    inline / file / command / url fetchers, ordered JSON decoding, select
 layout.go      grid math (span, units)
 sizes.go       resized pane sizes and the .sizes.json file next to the config
+update.go      update check and self-update (update_source.go: GitHub; restart*.go: per OS)
 markup.go      markdown renderer + color tags
 pane.go        the Pane interface and the table, markdown, spline and histogram panes
 ui.go          root Bubble Tea model: sources and refresh, focus, keys, mouse, frame, status line
 splash.go      start-up splash and logo
 examples/      demo dashboard with data files and a supplier script
 ```
+
+### Updates
+
+- tdash checks for a newer release at start and every 24 hours while running, in the background:
+  GitHub's `releases/latest`, which skips pre-releases. The answer is cached in
+  `<user cache>/tdash/update.json`, so the next start shows a known newer release at once.
+- Versions compare as semver. A `git describe` build (`v1.2.0-3-gabc`, `-dirty`) counts as its
+  tag; anything that isn't `vX.Y.Z…` (`dev`) doesn't check. Pre-releases aren't offered.
+- A newer release shows in the status line (`v1.3.0 available · u update`). `u` asks
+  "Update tdash v1.2.0 → v1.3.0? y/n"; the question takes every key until `y`, `n` or `Esc`.
+- `y` downloads `tdash_<tag>_<os>_<arch>` and `checksums.txt` from the release, checks the
+  SHA-256, writes the binary next to `os.Executable()` and renames it over it (Windows moves the
+  old one to `.old` first). Then "restart now? y/n": `y` quits and execs the new binary with the
+  same arguments (Windows runs it and exits with its code); `n` leaves "restart to use it".
+- Failures: a failed check is silent; a failed update shows in the status line and changes
+  nothing. `--update` is the same flow on the command line. `--no-update-check` or
+  `TDASH_NO_UPDATE_CHECK` turns the check off.
 
 ### Releases
 

@@ -18,6 +18,8 @@ func main() {
 	configFlag := flag.String("config", "", "path to the dashboard config")
 	showVersion := flag.Bool("version", false, "print the version")
 	noMouse := flag.Bool("no-mouse", false, "leave the mouse to the terminal (text selection)")
+	update := flag.Bool("update", false, "update to the newest release, after asking")
+	noUpdateCheck := flag.Bool("no-update-check", false, "don't look for newer releases")
 	var help bool
 	for _, name := range []string{"help", "h", "usage"} {
 		flag.BoolVar(&help, name, false, "show this help")
@@ -30,6 +32,12 @@ func main() {
 	}
 	if *showVersion {
 		fmt.Println("tdash", version)
+		return
+	}
+	if *update {
+		if err := updateCLI("tdash", version, os.Stdin, os.Stdout); err != nil {
+			fail(err)
+		}
 		return
 	}
 
@@ -55,10 +63,14 @@ func main() {
 	}
 	m := newModel(path, cfg)
 	m.noMouse = *noMouse
+	m.upd = newUpdater("tdash", version, *noUpdateCheck || os.Getenv("TDASH_NO_UPDATE_CHECK") != "")
 	_, err = tea.NewProgram(m, opts...).Run()
 	fmt.Print(pointerSeq("")) // leave the terminal with its own pointer
 	if err != nil {
 		fail(err)
+	}
+	if m.upd.Restart != "" {
+		fail(restart(m.upd.Restart))
 	}
 }
 
@@ -74,16 +86,20 @@ Usage:
   tdash [path/to/dashboard.json]
   tdash --config <path>
   tdash --help | --usage | --version
+  tdash --update
 
 Options:
   --config <path>   dashboard config to use (default: ./%s)
   --no-mouse        don't capture the mouse, so the terminal can select text
+  --update          update to the newest release, after asking
+  --no-update-check don't look for newer releases (or set TDASH_NO_UPDATE_CHECK=1)
   -h, --help, --usage
                     show this help
   --version         print the version
 
 The config is JSON; comments and trailing commas are allowed. See SPEC.md and examples/.
-The dashboard reloads by itself when the config file changes.
+The dashboard reloads by itself when the config file changes. tdash looks for a newer release
+at start and once a day; the status line shows one, and u updates (after asking).
 
 Keys:
   tab, shift+tab    focus the next / previous pane
@@ -96,6 +112,7 @@ Keys:
   z                 zoom the focused pane to the full screen
   < > + -           narrow / widen the focused pane, lower / raise its row
   =                 reset pane sizes to the config (deletes <config>.sizes.json)
+  u                 update to a newer release, when the status line shows one
   r                 reload the config and all data
   p                 pause / resume auto-refresh
   m                 mouse on / off; off leaves it to the terminal, so text can be selected

@@ -48,6 +48,8 @@ scripts/install.sh    # builds it into ~/bin (or $INSTALL_DIR)
 tdash examples/demo.json         # a config path; the default is ./tdash.json
 tdash --config path/to/dash.json
 tdash --no-mouse                 # leave the mouse to the terminal, for selecting text
+tdash --update                   # update to the newest release, after asking
+tdash --no-update-check          # don't look for newer releases
 tdash --help                     # also --usage and -h
 tdash --version
 ```
@@ -58,6 +60,21 @@ skips it.
 tdash watches its config file. When you save a change, the dashboard reloads within a second and
 keeps the focus, scroll positions and data of the panes that didn't change. If the saved config
 has an error, the dashboard stays as it was and the status line shows the error.
+
+### Updates
+
+tdash looks for a newer [release](https://github.com/allco/tdash/releases) when it starts and
+then once a day, without holding anything up. When there is one, the status line shows
+`v1.3.0 available · u update`. `u` asks before it does anything; `y` downloads the binary for
+your platform, checks it against the release's `checksums.txt`, puts it in place of the running
+one and offers to restart. `tdash --update` does the same from the command line.
+
+- Pre-releases are never offered. A build from a checkout (`v1.2.0-3-gabc1234`) counts as the
+  tag it is based on; a `dev` build (plain `go build`) never checks.
+- A failed check (offline, rate-limited) stays quiet. The last answer is kept in your user cache
+  folder (`~/.cache/tdash/update.json` on Linux), so the next start shows it at once.
+- If the binary's folder isn't writable, tdash says so and leaves it alone.
+- `--no-update-check`, or `TDASH_NO_UPDATE_CHECK=1`, turns the check off.
 
 ## Keys and mouse
 
@@ -72,6 +89,7 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | `z` | zoom the focused pane to the full screen |
 | `<` `>` / `+` `-` | narrow / widen the focused pane; lower / raise its row |
 | `=` | reset the pane sizes to the config |
+| `u` | update to a newer release, when the status line shows one (see [Updates](#updates)) |
 | `r` | reload the config and all data |
 | `p` | pause / resume auto-refresh |
 | `m` | mouse on / off; off leaves the mouse to the terminal, so you can select text |
@@ -264,6 +282,7 @@ terminal cell, so emoji take two cells as they do in a terminal. The PNGs are st
 | `supplier.go` | inline / file / command / URL fetching, ordered JSON decoding, `select` |
 | `layout.go` | the grid: spans and row units |
 | `sizes.go` | pane sizes changed with the mouse or keys, and their `.sizes.json` file |
+| `update.go`, `update_source.go`, `restart*.go` | the update check and self-update; `update_source.go` is where releases come from (GitHub) |
 | `pane.go` | the table, Markdown, spline and histogram panes |
 | `markup.go` | the Markdown renderer and color tags |
 | `ui.go` | the Bubble Tea app: refresh timers, focus, keys, mouse, the pane frame, the status line |

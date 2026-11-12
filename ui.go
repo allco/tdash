@@ -113,6 +113,8 @@ type model struct {
 	drag    *drag  // a border being dragged
 	pointer string // the mouse pointer shape asked of the terminal: "", col-resize or row-resize
 
+	upd *updater // newer releases, and updating to one
+
 	splash   bool
 	splashUp bool
 	spinner  spinner.Model
@@ -151,7 +153,8 @@ func configCheckCmd() tea.Cmd {
 }
 
 func newModel(path string, cfg *Config) *model {
-	m := &model{path: path, focus: -1, splash: true, spinner: spinner.New(spinner.WithSpinner(spinner.Dot))}
+	m := &model{path: path, focus: -1, splash: true, spinner: spinner.New(spinner.WithSpinner(spinner.Dot)),
+		upd: newUpdater("tdash", version, true)}
 	m.cfgStamp, _ = stampOf(path)
 	m.build(cfg, nil)
 	return m
@@ -245,7 +248,7 @@ func sameJSON(a, b any) bool {
 }
 
 func (m *model) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.spinner.Tick, splashCmd(), splashMaxCmd(), configCheckCmd()}
+	cmds := []tea.Cmd{m.spinner.Tick, splashCmd(), splashMaxCmd(), configCheckCmd(), m.upd.Init()}
 	for k := range m.sources {
 		cmds = append(cmds, m.fetchCmd(k))
 	}
@@ -316,6 +319,9 @@ func (m *model) setFlash(s string, isErr bool) tea.Cmd {
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ok, cmd := m.upd.Update(msg); ok {
+		return m, cmd
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -395,6 +401,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) key(k string) tea.Cmd {
+	if ok, cmd := m.upd.Key(k); ok {
+		return cmd
+	}
 	if m.help {
 		switch k {
 		case "q", "Q", "ctrl+c":
@@ -1134,11 +1143,18 @@ func (m *model) statusLine() string {
 	}
 
 	var info string
+	upd, updErr := m.upd.Status()
 	switch {
+	case m.upd.Asking():
+		info = accent.Render(upd)
 	case m.flash != "" && m.flashErr:
 		info = errStyle.Render(m.flash)
 	case m.flash != "":
 		info = dimStyle.Render(m.flash)
+	case upd != "" && updErr:
+		info = errStyle.Render(upd)
+	case upd != "":
+		info = accent.Render(upd)
 	case m.focus >= 0:
 		if src := m.sources[m.panes[m.focus].srcKey]; src != nil {
 			switch {
@@ -1190,6 +1206,7 @@ var helpKeys = [][2]string{
 	{"z", "zoom the focused pane to the full screen"},
 	{"< > + -", "narrow / widen the focused pane, lower / raise its row"},
 	{"=", "reset pane sizes to the config"},
+	{"u", "update to a newer release, when the status line shows one"},
 	{"mouse", "click focuses, wheel scrolls (shift+wheel sideways), drag a border to resize"},
 	{"m", "mouse on / off (off: the terminal selects text; esc turns it on)"},
 	{"r", "reload the config and all data"},
