@@ -410,8 +410,11 @@ func (m *model) key(k string) tea.Cmd {
 			return tea.Quit
 		case "esc", "?", "enter":
 			m.help = false
+			return nil
+		case "m", "M": // the mouse toggle works here too, to select the links under About
+		default:
+			return nil
 		}
-		return nil
 	}
 	switch k {
 	case "q", "Q", "ctrl+c":
@@ -1219,7 +1222,10 @@ func (m *model) helpView() string {
 	for _, k := range helpKeys {
 		lines = append(lines, keyStyle.Render(fmt.Sprintf("%-20s", k[0]))+k[1])
 	}
-	lines = append(lines, "", dimStyle.Render("config: "+m.path))
+	lines = append(lines, "", dimStyle.Render("config: "+m.path), "", keyStyle.Render("About"),
+		fmt.Sprintf("%-20s%s", "project", projectURL("tdash")),
+		fmt.Sprintf("%-20s%s", "releases", releasesURL("tdash")),
+		dimStyle.Render("press m to turn the mouse off and select a link"))
 	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(m.accent())).
 		Padding(1, 2).Render(strings.Join(lines, "\n"))
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)

@@ -13,6 +13,10 @@ import (
 
 const releaseRepo = "allco/" // + app
 
+// projectURL and releasesURL are the links the help overlay shows under About.
+func projectURL(app string) string  { return "https://github.com/" + releaseRepo + app }
+func releasesURL(app string) string { return projectURL(app) + "/releases" }
+
 // latestRelease asks GitHub for the newest release; /releases/latest skips pre-releases.
 func latestRelease(ctx context.Context, app string) (string, error) {
 	b, err := httpGet(ctx, "https://api.github.com/repos/"+releaseRepo+app+"/releases/latest")

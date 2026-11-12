@@ -99,7 +99,7 @@ The width formula then becomes `available width / Σ spans × span`.
 | `Tab` | Focus the next pane (row-major order) |
 | `Shift+Tab` | Focus the previous pane |
 | `Esc` | Remove focus. Also closes any open overlay (help, detail view), and first turns mouse capture back on after `m` |
-| `?` | Show a help overlay with all key bindings *(recommended)* |
+| `?` | Show a help overlay with all key bindings, and an About section with the project and releases links *(recommended)* |
 | `p` | Pause or resume auto-refresh *(recommended)* |
 | `m` | Mouse capture on / off; off leaves the mouse to the terminal for selecting text (§3.4) |
 | `↑ ↓` / `PgUp PgDn` (no focus) | Scroll the dashboard vertically |

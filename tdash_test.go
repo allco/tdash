@@ -587,3 +587,24 @@ func TestPointerOverBorders(t *testing.T) {
 		t.Errorf("first line is %d cells wide, want 100", w)
 	}
 }
+
+func TestHelpShowsAbout(t *testing.T) {
+	cfg, err := loadConfig("examples/demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel("examples/demo.json", cfg)
+	m.splash = false
+	m.Update(tea.WindowSizeMsg{Width: 120, Height: 60})
+	m.key("?")
+	v := m.View()
+	for _, want := range []string{"About", projectURL("tdash"), releasesURL("tdash")} {
+		if !strings.Contains(v, want) {
+			t.Errorf("help has no %q", want)
+		}
+	}
+	m.key("m")
+	if !m.help || !m.noMouse {
+		t.Errorf("m in the help: help %v, noMouse %v", m.help, m.noMouse)
+	}
+}

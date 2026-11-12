@@ -93,7 +93,7 @@ one and offers to restart. `tdash --update` does the same from the command line.
 | `r` | reload the config and all data |
 | `p` | pause / resume auto-refresh |
 | `m` | mouse on / off; off leaves the mouse to the terminal, so you can select text |
-| `?` | help |
+| `?` | help, with links to the project and its releases |
 | `q` / `ctrl+c` | quit |
 
 | Mouse | Action |
