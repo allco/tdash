@@ -24,6 +24,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -404,6 +405,27 @@ func (u *updater) Key(k string) (handled bool, cmd tea.Cmd) {
 
 // Asking reports whether a question is open, so the app can show it instead of its own hints.
 func (u *updater) Asking() bool { return u.step == updConfirm || u.step == updRestart }
+
+// The updater's part of the status line is a badge, so a new release is hard to miss: black on
+// orange, which reads on dark and light terminals alike; red for a failed update.
+var (
+	updateBadge    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("214"))
+	updateErrBadge = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("231")).Background(lipgloss.Color("160"))
+)
+
+// StatusView renders Status as a badge for the status line; "" for nothing.
+func (u *updater) StatusView() string {
+	s, isErr := u.Status()
+	switch {
+	case s == "":
+		return ""
+	case isErr:
+		return updateErrBadge.Render(" " + s + " ")
+	case u.step == updIdle:
+		return updateBadge.Render(" ⬆ " + s + " ")
+	}
+	return updateBadge.Render(" " + s + " ")
+}
 
 // Status is the updater's part of the status line, and whether it is an error; "" for nothing.
 func (u *updater) Status() (string, bool) {

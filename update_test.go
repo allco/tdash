@@ -150,6 +150,9 @@ func TestUpdaterInApp(t *testing.T) {
 	if s, _ := u.Status(); s != "v1.3.0 available · u update" {
 		t.Fatalf("status %q", s)
 	}
+	if v := u.StatusView(); !strings.Contains(v, "⬆ v1.3.0 available · u update") {
+		t.Errorf("badge %q", v)
+	}
 	// The next run shows it at once, from the cache, before checking.
 	if u2 := newUpdater("tdash", "v1.2.0", false); u2.latest != "v1.3.0" {
 		t.Errorf("cached latest %q", u2.latest)

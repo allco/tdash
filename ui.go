@@ -1143,18 +1143,16 @@ func (m *model) statusLine() string {
 	}
 
 	var info string
-	upd, updErr := m.upd.Status()
+	upd := m.upd.StatusView()
 	switch {
 	case m.upd.Asking():
-		info = accent.Render(upd)
+		info = upd
 	case m.flash != "" && m.flashErr:
 		info = errStyle.Render(m.flash)
 	case m.flash != "":
 		info = dimStyle.Render(m.flash)
-	case upd != "" && updErr:
-		info = errStyle.Render(upd)
 	case upd != "":
-		info = accent.Render(upd)
+		info = upd
 	case m.focus >= 0:
 		if src := m.sources[m.panes[m.focus].srcKey]; src != nil {
 			switch {
