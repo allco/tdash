@@ -52,6 +52,10 @@ A value that isn't a color falls back to the default.
 
 Leftover lines from rounding go to the last row.
 
+Panes can be resized while tdash runs, by dragging a border or with `<` `>` `+` `-`. Those sizes
+go to `<config name>.sizes.json` next to the config and override `span` and `height` where they
+still fit; `=` deletes the file. See the README's "Keys and mouse".
+
 ### Row
 
 | Field | Type | Default | Description |

@@ -84,6 +84,16 @@ type actionMsg struct {
 
 type clearFlashMsg struct{ at time.Time }
 
+// drag is a border held with the mouse: between panes a and a+1 of a row, or (rows) between
+// row a and the row below it.
+type drag struct {
+	rows  bool
+	a     int
+	off   int // the pointer's distance from the border when it was pressed
+	panes map[int]bool
+	moved bool
+}
+
 type model struct {
 	path string
 	cfg  *Config
@@ -98,6 +108,9 @@ type model struct {
 	help    bool
 	paused  bool
 	noMouse bool // the terminal has the mouse, so text can be selected
+
+	sizes *Sizes // pane sizes changed by dragging or the resize keys; nil: the config's
+	drag  *drag  // a border being dragged
 
 	splash   bool
 	splashUp bool
@@ -150,6 +163,8 @@ func (m *model) border() string { return colorOr(m.cfg.Theme.Border, "240") }
 // their state (selection, scroll, last data), so a reload doesn't blank the screen.
 func (m *model) build(cfg *Config, old *model) {
 	m.cfg = cfg
+	m.sizes = loadSizes(sizesPath(m.path))
+	m.drag = nil
 	m.gen++
 	m.panes = nil
 	m.sources = map[string]*source{}
@@ -436,6 +451,16 @@ func (m *model) key(k string) tea.Cmd {
 		if m.focus >= 0 {
 			m.zoom = !m.zoom
 		}
+	case "<", ">", "+", "-":
+		if m.focus >= 0 && !m.zoom {
+			return m.resizeFocused(k)
+		}
+	case "=":
+		m.sizes = nil
+		if err := removeSizes(sizesPath(m.path)); err != nil {
+			return m.setFlash(err.Error(), true)
+		}
+		return m.setFlash("pane sizes reset to the config", false)
 	case "enter":
 		if m.focus >= 0 {
 			return m.runAction(m.panes[m.focus])
@@ -522,10 +547,10 @@ func (m *model) layout() ([]rect, int, int) {
 	l := m.cfg.Layout
 	avail := max(1, m.height-1)
 	w := m.width
-	rects, total := layoutGrid(l.Rows, w, avail, l.Unit, l.MinUnit)
+	rects, total := layoutGrid(l.Rows, w, avail, l.Unit, l.MinUnit, m.sizes)
 	if total > avail {
 		w--
-		rects, total = layoutGrid(l.Rows, w, avail, l.Unit, l.MinUnit)
+		rects, total = layoutGrid(l.Rows, w, avail, l.Unit, l.MinUnit, m.sizes)
 	}
 	m.offset = max(0, min(m.offset, total-avail))
 	return rects, total, w
@@ -534,6 +559,20 @@ func (m *model) layout() ([]rect, int, int) {
 func (m *model) mouse(msg tea.MouseMsg) tea.Cmd {
 	if m.help {
 		return nil
+	}
+	if m.drag != nil {
+		switch msg.Action {
+		case tea.MouseActionMotion:
+			m.dragTo(msg.X, msg.Y+m.offset)
+			return nil
+		case tea.MouseActionRelease:
+			d := m.drag
+			m.drag = nil
+			if d.moved {
+				return m.saveSizes()
+			}
+			return nil
+		}
 	}
 	i, r := m.paneAt(msg.X, msg.Y)
 	switch {
@@ -575,11 +614,151 @@ func (m *model) mouse(msg tea.MouseMsg) tea.Cmd {
 			return nil
 		}
 		m.focus = i
+		if !m.zoom && msg.Y < m.height-1 {
+			m.drag = m.borderAt(msg.X, msg.Y+m.offset)
+		}
 		ps := m.panes[i]
 		// The line inside the frame: below the border, any error lines and the header.
 		if line := msg.Y - r.y - 1 - ps.topH; line >= 0 && line < ps.bodyH {
 			ps.pane.Click(ps.yoff + line)
 		}
+	}
+	return nil
+}
+
+// rowStarts gives the index of each row's first pane, and one past the last pane at the end.
+func (m *model) rowStarts() []int {
+	starts := []int{0}
+	for _, r := range m.cfg.Layout.Rows {
+		starts = append(starts, starts[len(starts)-1]+len(r.Panes))
+	}
+	return starts
+}
+
+// borderAt finds a border under a dashboard position (y counts from the top of the dashboard).
+// Two panes side by side each draw a border, so either of the two cells grabs it.
+func (m *model) borderAt(x, y int) *drag {
+	rects, _, _ := m.layout()
+	starts := m.rowStarts()
+	for row := 0; row+1 < len(starts); row++ {
+		for k := starts[row]; k+1 < starts[row+1]; k++ {
+			b := rects[k+1].x
+			if (x == b-1 || x == b) && y >= rects[k].y && y < rects[k].y+rects[k].h {
+				return &drag{a: k, off: x - b, panes: map[int]bool{k: true, k + 1: true}}
+			}
+		}
+	}
+	for row := 0; row+2 < len(starts); row++ {
+		b := rects[starts[row+1]].y
+		if y == b-1 || y == b {
+			d := &drag{rows: true, a: row, off: y - b, panes: map[int]bool{}}
+			for k := starts[row]; k < starts[row+2]; k++ {
+				d.panes[k] = true
+			}
+			return d
+		}
+	}
+	return nil
+}
+
+// dragTo moves the held border to follow the pointer.
+func (m *model) dragTo(x, y int) {
+	if m.drag.rows {
+		m.drag.moved = m.moveRowBorder(m.drag.a, y-m.drag.off) || m.drag.moved
+	} else {
+		m.drag.moved = m.moveColBorder(m.drag.a, x-m.drag.off) || m.drag.moved
+	}
+}
+
+// moveColBorder moves the border between panes a and a+1 of a row to x, keeping both at least
+// minPaneW wide. It reports whether anything changed.
+func (m *model) moveColBorder(a, x int) bool {
+	rects, total, w := m.layout()
+	l, r := rects[a], rects[a+1]
+	end := r.x + r.w
+	lo, hi := l.x+minPaneW, end-minPaneW
+	if lo > hi {
+		return false
+	}
+	x = max(lo, min(x, hi))
+	if x == r.x {
+		return false
+	}
+	rects[a].w, rects[a+1].x, rects[a+1].w = x-l.x, x, end-x
+	m.sizes = sizesOf(m.cfg.Layout.Rows, rects, w, total)
+	return true
+}
+
+// moveRowBorder moves the border between row a and row a+1 to y, keeping both at least minRowH
+// lines high. It reports whether anything changed.
+func (m *model) moveRowBorder(a, y int) bool {
+	rects, total, w := m.layout()
+	starts := m.rowStarts()
+	top, below := rects[starts[a]], rects[starts[a+1]]
+	end := below.y + below.h
+	lo, hi := top.y+minRowH, end-minRowH
+	if lo > hi {
+		return false
+	}
+	y = max(lo, min(y, hi))
+	if y == below.y {
+		return false
+	}
+	for k := starts[a]; k < starts[a+1]; k++ {
+		rects[k].h = y - top.y
+	}
+	for k := starts[a+1]; k < starts[a+2]; k++ {
+		rects[k].y, rects[k].h = y, end-y
+	}
+	m.sizes = sizesOf(m.cfg.Layout.Rows, rects, w, total)
+	return true
+}
+
+// resizeFocused handles < > (the focused pane's width) and + - (its row's height). It moves the
+// border after the pane, or the one before it for the last pane of a row or the last row.
+func (m *model) resizeFocused(k string) tea.Cmd {
+	rects, _, _ := m.layout()
+	starts := m.rowStarts()
+	row := 0
+	for m.focus >= starts[row+1] {
+		row++
+	}
+	r := rects[m.focus]
+	moved := false
+	switch k {
+	case "<", ">":
+		d := sideStep
+		if k == "<" {
+			d = -d
+		}
+		switch {
+		case m.focus+1 < starts[row+1]:
+			moved = m.moveColBorder(m.focus, r.x+r.w+d)
+		case m.focus > starts[row]:
+			moved = m.moveColBorder(m.focus-1, r.x-d)
+		}
+	default:
+		d := 1
+		if k == "-" {
+			d = -1
+		}
+		switch {
+		case row+2 < len(starts):
+			moved = m.moveRowBorder(row, r.y+r.h+d)
+		case row > 0:
+			moved = m.moveRowBorder(row-1, r.y-d)
+		}
+	}
+	if !moved {
+		return nil
+	}
+	return m.saveSizes()
+}
+
+// saveSizes writes the sizes file; when it can't, the sizes still last for this session.
+func (m *model) saveSizes() tea.Cmd {
+	if err := m.sizes.save(sizesPath(m.path)); err != nil {
+		return m.setFlash("pane sizes not saved: "+err.Error(), true)
 	}
 	return nil
 }
@@ -802,6 +981,9 @@ func (m *model) frame(i, w, h int) []string {
 		bs = lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent())).Bold(true)
 		ts = ts.Background(lipgloss.Color(m.accent())).Foreground(lipgloss.Color("0"))
 	}
+	if m.drag != nil && m.drag.panes[i] {
+		bs = lipgloss.NewStyle().Foreground(lipgloss.Color(m.accent())).Bold(true)
+	}
 
 	// Title, with a mark while its data is loading.
 	title := ps.cfg.Title
@@ -959,7 +1141,9 @@ var helpKeys = [][2]string{
 	{"", "tables: ↑↓ select a row · charts: ←→ move the cursor"},
 	{"enter", "run the action of the selected row"},
 	{"z", "zoom the focused pane to the full screen"},
-	{"mouse", "click focuses, wheel scrolls (shift+wheel sideways)"},
+	{"< > + -", "narrow / widen the focused pane, lower / raise its row"},
+	{"=", "reset pane sizes to the config"},
+	{"mouse", "click focuses, wheel scrolls (shift+wheel sideways), drag a border to resize"},
 	{"m", "mouse on / off (off: the terminal selects text; esc turns it on)"},
 	{"r", "reload the config and all data"},
 	{"p", "pause / resume auto-refresh"},

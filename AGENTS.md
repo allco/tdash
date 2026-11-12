@@ -47,7 +47,8 @@ Everything is in one `package main` at the root:
 | `main.go` | flags (`--config`, `--no-mouse`, `--version`, `--help`), `version` (set by `-ldflags` in releases), program start with alt screen and mouse |
 | `config.go` | config structs, JSONC via `hujson.Standardize`, `DisallowUnknownFields`, `validate()` with path-style errors (`layout.rows[1].panes[0].chart: …`), defaults, `parseRefresh` (0 unset, -1 "off") |
 | `supplier.go` | `fetch()` for inline/file/command/url, `decodeJSON` into `*Object` (**keeps key order**; numbers are `float64`), `parseOutput` formats, `${VAR}` expansion (only the braced form, so shell `$VAR` survives), the `select` path parser/evaluator |
-| `layout.go` | `layoutGrid`: spans → widths (cumulative rounding), units → heights, auto unit, leftover lines to the last row |
+| `layout.go` | `layoutGrid`: spans → widths (cumulative rounding), units → heights, auto unit, leftover lines to the last row; saved `Sizes` override both where they fit |
+| `sizes.go` | `Sizes` (fractions per row and pane), the `<config>.sizes.json` file next to the config, `split` (cumulative rounding down, as spans), `sizesOf` (a layout → fractions). Dragging and the `< > + - =` keys are in `ui.go` (`borderAt`, `moveColBorder`, `moveRowBorder`) |
 | `markup.go` | the Markdown renderer (line-based, no library), inline parsing into styled `seg`s, color tags `{red on yellow}…{/}`, `wrapSegs` (word wrap that keeps styles per line), `joinContinuations` |
 | `pane.go` | the `Pane` interface and the `mdPane`, `tablePane`, `splinePane` (braille + Catmull-Rom) and `histPane` panes |
 | `ui.go` | the root model: sources and refresh timers, `deliver` (select → `SetData`), keys, mouse, actions, config watching, `frame()` (border, title, error lines, scroll, clip, scrollbars), status line, help |

@@ -70,6 +70,8 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | `pgup` `pgdn` `home` `end` | scroll by a page, or to the start / end |
 | `enter` | run the action of the selected row (open a URL, run a command, copy) |
 | `z` | zoom the focused pane to the full screen |
+| `<` `>` / `+` `-` | narrow / widen the focused pane; lower / raise its row |
+| `=` | reset the pane sizes to the config |
 | `r` | reload the config and all data |
 | `p` | pause / resume auto-refresh |
 | `m` | mouse on / off; off leaves the mouse to the terminal, so you can select text |
@@ -81,6 +83,15 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | click | focus the pane; in a table, also select the row |
 | wheel | scroll the pane under the pointer; if it has nothing to scroll, scroll the dashboard |
 | `shift`+wheel, sideways swipe | scroll the pane sideways |
+| drag a border | resize the panes or rows on either side |
+
+Drag the border between two panes, or between two rows, to resize them (the two borders turn
+the accent color while you drag). With a pane focused, `<` `>` narrow or widen it and `+` `-`
+lower or raise its row. A pane is at least 10 cells wide and a row 3 lines high. New sizes are
+saved next to the config, `dashboard.json` → `dashboard.sizes.json`, as fractions, so they
+scale with the terminal; `=` deletes the file and goes back to the config's sizes. If the config
+changes so the saved sizes no longer fit (another row, or another pane in a row), they are
+ignored there.
 
 To select text with the mouse, press `m` (the status line shows "mouse off"), select, and press
 `m` or `esc`. `--no-mouse` starts with the mouse off. Most terminals also select with `shift`+drag
@@ -251,6 +262,7 @@ terminal cell, so emoji take two cells as they do in a terminal. The PNGs are st
 | `config.go` | config structs, JSONC loading, validation |
 | `supplier.go` | inline / file / command / URL fetching, ordered JSON decoding, `select` |
 | `layout.go` | the grid: spans and row units |
+| `sizes.go` | pane sizes changed with the mouse or keys, and their `.sizes.json` file |
 | `pane.go` | the table, Markdown, spline and histogram panes |
 | `markup.go` | the Markdown renderer and color tags |
 | `ui.go` | the Bubble Tea app: refresh timers, focus, keys, mouse, the pane frame, the status line |

@@ -18,7 +18,7 @@ func TestLayoutGrid(t *testing.T) {
 		{Height: 2, Panes: []PaneConfig{{Span: 2}, {Span: 1}}},
 		{Height: 1, Panes: []PaneConfig{{Span: 1}, {Span: 1}, {Span: 1}}},
 	}
-	rects, total := layoutGrid(rows, 100, 31, 0, 4)
+	rects, total := layoutGrid(rows, 100, 31, 0, 4, nil)
 	// unit = 31/3 = 10; the leftover line goes to the last row.
 	want := []rect{{0, 0, 66, 20}, {66, 0, 34, 20}, {0, 20, 33, 11}, {33, 20, 33, 11}, {66, 20, 34, 11}}
 	if total != 31 {
@@ -31,11 +31,11 @@ func TestLayoutGrid(t *testing.T) {
 	}
 
 	// Too small for minUnit: the dashboard gets taller than the screen and scrolls.
-	if _, total := layoutGrid(rows, 100, 9, 0, 4); total != 12 {
+	if _, total := layoutGrid(rows, 100, 9, 0, 4, nil); total != 12 {
 		t.Errorf("total = %d, want 12 (3 units × minUnit 4)", total)
 	}
 	// A fixed unit ignores the screen height.
-	if _, total := layoutGrid(rows, 100, 50, 5, 4); total != 15 {
+	if _, total := layoutGrid(rows, 100, 50, 5, 4, nil); total != 15 {
 		t.Errorf("total = %d, want 15", total)
 	}
 }
@@ -416,5 +416,142 @@ func TestShareColumnFillsPane(t *testing.T) {
 	p.sel = 0
 	if text := ansi.Strip(strings.Join(p.Content(50, 20, true).body, "\n")); !strings.Contains(text, "end") {
 		t.Errorf("the selected row doesn't show the long cell in full:\n%s", text)
+	}
+}
+
+// resizeModel is a 100×31 terminal (30 lines above the status line): two panes side by side over
+// one wide pane, 15 lines each.
+func resizeModel(t *testing.T, rows string) (*model, string) {
+	t.Helper()
+	path := t.TempDir() + "/dash.json"
+	if rows == "" {
+		md := `{"type": "markdown", "data": {"inline": "hi"}}`
+		rows = `[{"panes": [` + md + `, ` + md + `]}, {"panes": [` + md + `]}]`
+	}
+	if err := os.WriteFile(path, []byte(`{"layout": {"rows": `+rows+`}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel(path, cfg)
+	m.splash = false
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 31})
+	m.View()
+	return m, path
+}
+
+func dragMouse(m *model, x0, y0, x1, y1 int) {
+	m.Update(tea.MouseMsg{X: x0, Y: y0, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m.Update(tea.MouseMsg{X: x1, Y: y1, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	m.Update(tea.MouseMsg{X: x1, Y: y1, Button: tea.MouseButtonNone, Action: tea.MouseActionRelease})
+}
+
+func TestDragResizesAndSaves(t *testing.T) {
+	m, path := resizeModel(t, "")
+	rects, _, _ := m.layout()
+	if rects[1].x != 50 || rects[2].y != 15 {
+		t.Fatalf("start layout %+v", rects)
+	}
+
+	dragMouse(m, 49, 5, 69, 5) // the right border of the left pane, 20 cells right
+	dragMouse(m, 10, 15, 10, 20)
+	rects, _, _ = m.layout()
+	if rects[0].w != 70 || rects[1].x != 70 || rects[1].w != 30 {
+		t.Errorf("after the column drag: %+v %+v", rects[0], rects[1])
+	}
+	if rects[0].h != 20 || rects[2].y != 20 || rects[2].h != 10 {
+		t.Errorf("after the row drag: %+v %+v", rects[0], rects[2])
+	}
+	if m.drag != nil {
+		t.Error("the drag didn't end on release")
+	}
+
+	// The sizes are saved next to the config, and come back on the next start.
+	saved := sizesPath(path)
+	if !strings.HasSuffix(saved, "/dash.sizes.json") {
+		t.Fatalf("sizes path %s", saved)
+	}
+	cfg, _ := loadConfig(path)
+	m2 := newModel(path, cfg)
+	m2.Update(tea.WindowSizeMsg{Width: 100, Height: 31})
+	if r2, _, _ := m2.layout(); !slices.Equal(r2, rects) {
+		t.Errorf("after a restart %+v, want %+v", r2, rects)
+	}
+	// They scale with the terminal.
+	m2.Update(tea.WindowSizeMsg{Width: 200, Height: 31})
+	if r2, _, _ := m2.layout(); r2[0].w != 140 {
+		t.Errorf("at width 200 the left pane is %d wide, want 140", r2[0].w)
+	}
+
+	// = goes back to the config and deletes the file.
+	m.key("=")
+	if rects, _, _ = m.layout(); rects[1].x != 50 {
+		t.Errorf("after = the border is at %d, want 50", rects[1].x)
+	}
+	if _, err := os.Stat(saved); !os.IsNotExist(err) {
+		t.Errorf("= left the sizes file: %v", err)
+	}
+}
+
+func TestDragKeepsMinimumSize(t *testing.T) {
+	m, _ := resizeModel(t, "")
+	dragMouse(m, 50, 5, 0, 5)
+	dragMouse(m, 80, 14, 80, 0) // x=10 would now be the left pane's side border
+	rects, _, _ := m.layout()
+	if rects[0].w != minPaneW || rects[0].h != minRowH {
+		t.Errorf("left pane %+v, want %d wide and %d high", rects[0], minPaneW, minRowH)
+	}
+}
+
+func TestClickInsidePaneDoesNotResize(t *testing.T) {
+	m, path := resizeModel(t, "")
+	dragMouse(m, 20, 5, 30, 8)
+	if r, _, _ := m.layout(); r[1].x != 50 || r[2].y != 15 {
+		t.Errorf("a drag inside a pane resized it: %+v", r)
+	}
+	if _, err := os.Stat(sizesPath(path)); !os.IsNotExist(err) {
+		t.Errorf("a sizes file was written: %v", err)
+	}
+}
+
+func TestResizeKeys(t *testing.T) {
+	m, _ := resizeModel(t, "")
+	m.key("tab") // the left pane
+	m.key(">")
+	m.key("+")
+	rects, _, _ := m.layout()
+	if rects[0].w != 50+sideStep || rects[0].h != 16 {
+		t.Errorf("after > +: %+v", rects[0])
+	}
+	m.key("tab")
+	m.key("tab") // the bottom pane: the last row moves the border above it
+	m.key("+")
+	if rects, _, _ = m.layout(); rects[2].h != 15 {
+		t.Errorf("after + on the last row: %+v, want 15 high (14 + 1)", rects[2])
+	}
+	m.key("tab")
+	m.key("tab") // the right pane, the last in its row: > moves its left border
+	m.key(">")
+	if rects, _, _ = m.layout(); rects[1].x != 50 || rects[1].w != 50 {
+		t.Errorf("after > on the last pane of a row: %+v, want back at 50", rects[1])
+	}
+}
+
+func TestSizesIgnoredWhenConfigChanges(t *testing.T) {
+	m, path := resizeModel(t, "")
+	dragMouse(m, 49, 5, 69, 5)
+	dragMouse(m, 10, 15, 10, 20)
+	// The top row gets a third pane: its widths no longer fit, the row heights still do.
+	md := `{"type": "markdown", "data": {"inline": "hi"}}`
+	rows := `[{"panes": [` + md + `, ` + md + `, ` + md + `]}, {"panes": [` + md + `]}]`
+	if err := os.WriteFile(path, []byte(`{"layout": {"rows": `+rows+`}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m.reload()
+	rects, _, _ := m.layout()
+	if rects[0].w != 33 || rects[0].h != 20 {
+		t.Errorf("after adding a pane: %+v, want 33 wide (spans) and 20 high (saved)", rects[0])
 	}
 }

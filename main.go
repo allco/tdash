@@ -91,6 +91,8 @@ Keys:
                     scroll by a page, to the start / end
   enter             run the action of the selected row
   z                 zoom the focused pane to the full screen
+  < > + -           narrow / widen the focused pane, lower / raise its row
+  =                 reset pane sizes to the config (deletes <config>.sizes.json)
   r                 reload the config and all data
   p                 pause / resume auto-refresh
   m                 mouse on / off; off leaves it to the terminal, so text can be selected
@@ -99,6 +101,6 @@ Keys:
   q, ctrl+c         quit
 
 Mouse: click focuses a pane (and selects a table row), the wheel scrolls, shift+wheel scrolls
-sideways. Most terminals also select text with shift+drag while tdash has the mouse.
+sideways, dragging a border resizes panes (saved to <config>.sizes.json). Most terminals also select text with shift+drag while tdash has the mouse.
 `, version, defaultConfig)
 }

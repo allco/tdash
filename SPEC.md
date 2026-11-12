@@ -104,6 +104,8 @@ The width formula then becomes `available width / Σ spans × span`.
 | `m` | Mouse capture on / off; off leaves the mouse to the terminal for selecting text (§3.4) |
 | `↑ ↓` / `PgUp PgDn` (no focus) | Scroll the dashboard vertically |
 | `z` | Zoom: show the focused pane full-screen, `Esc` to go back |
+| `<` `>` / `+` `-` | Narrow / widen the focused pane; lower / raise its row (§3.5) |
+| `=` | Reset pane sizes to the config (§3.5) |
 
 ### 3.3 Keys inside a focused pane
 
@@ -127,6 +129,26 @@ off the terminal has the mouse, so text can be selected, and the status line sho
 | Wheel over a pane | Scroll the pane vertically. If the pane has nothing to scroll, the dashboard scrolls |
 | `Shift`+wheel, or a horizontal wheel / trackpad swipe | Scroll the pane sideways |
 | Wheel over nothing | Scroll the dashboard |
+| Drag a border | Resize the panes, or the rows, on either side of it (§3.5) |
+
+### 3.5 Resizing panes
+
+- Drag the border between two panes of a row to move width from one to the other, or the
+  border between two rows to move height. Either of the two border cells (each pane draws its
+  own) grabs it. The panes on both sides draw their borders in the accent color while dragging.
+  A click that doesn't move still just focuses the pane.
+- Keys, on the focused pane: `<` `>` move its right border (the left one for the last pane of a
+  row) by 4 cells; `+` `-` move its row's bottom border (the top one for the last row) by a line.
+- Limits: a pane is at least 10 cells wide, a row at least 3 lines high. No resizing while zoomed.
+- Sizes are saved when a drag ends, or after a resize key, to a file next to the config:
+  `dashboard.json` → `dashboard.sizes.json`. It holds fractions, so it scales with the terminal:
+  `{"rows": [{"height": 0.4, "panes": [0.7, 0.3]}, …]}`, each row's share of the dashboard
+  height and each pane's share of its row.
+- It is read at start, on `r`, and when the config changes. Sizes that no longer fit the config
+  are ignored: heights when the number of rows changed, a row's widths when its number of panes
+  changed. A broken file is ignored. The next save writes the current layout over it.
+- `=` deletes the file and goes back to the config's `span` and `height`. If the file can't be
+  written, the status line says so and the sizes last for the session.
 
 ---
 
@@ -511,6 +533,7 @@ main.go        flags, load config, start the program
 config.go      structs, JSONC loading, validation
 supplier.go    inline / file / command / url fetchers, ordered JSON decoding, select
 layout.go      grid math (span, units)
+sizes.go       resized pane sizes and the .sizes.json file next to the config
 markup.go      markdown renderer + color tags
 pane.go        the Pane interface and the table, markdown, spline and histogram panes
 ui.go          root Bubble Tea model: sources and refresh, focus, keys, mouse, frame, status line
