@@ -555,3 +555,35 @@ func TestSizesIgnoredWhenConfigChanges(t *testing.T) {
 		t.Errorf("after adding a pane: %+v, want 33 wide (spans) and 20 high (saved)", rects[0])
 	}
 }
+
+func TestPointerOverBorders(t *testing.T) {
+	m, _ := resizeModel(t, "")
+	hover := func(x, y int) string {
+		m.Update(tea.MouseMsg{X: x, Y: y, Button: tea.MouseButtonNone, Action: tea.MouseActionMotion})
+		return m.View()
+	}
+	for _, c := range []struct {
+		x, y int
+		want string
+	}{
+		{49, 5, "col-resize"}, // the border between the two top panes
+		{50, 5, "col-resize"},
+		{20, 15, "row-resize"}, // the border between the rows
+		{20, 5, "default"},     // inside a pane
+		{20, 30, "default"},    // the status line
+	} {
+		if v := hover(c.x, c.y); !strings.HasPrefix(v, "\x1b]22;"+c.want+"\x1b\\") {
+			t.Errorf("pointer at %d,%d: %q, want %s", c.x, c.y, v[:min(len(v), 24)], c.want)
+		}
+	}
+	// It stays a resize arrow for the whole drag, even when the pointer runs ahead of the border.
+	m.Update(tea.MouseMsg{X: 49, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m.Update(tea.MouseMsg{X: 5, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	if v := m.View(); !strings.HasPrefix(v, "\x1b]22;col-resize") {
+		t.Errorf("pointer during a drag: %q", v[:min(len(v), 24)])
+	}
+	// The sequence takes no room on screen.
+	if w := ansi.StringWidth(strings.SplitN(m.View(), "\n", 2)[0]); w != 100 {
+		t.Errorf("first line is %d cells wide, want 100", w)
+	}
+}

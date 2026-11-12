@@ -137,6 +137,10 @@ off the terminal has the mouse, so text can be selected, and the status line sho
   border between two rows to move height. Either of the two border cells (each pane draws its
   own) grabs it. The panes on both sides draw their borders in the accent color while dragging.
   A click that doesn't move still just focuses the pane.
+- Over a border that can be dragged, and during the drag, the pointer becomes `col-resize` or
+  `row-resize` (OSC 22, sent with each frame; `default` elsewhere and on exit). For that tdash
+  asks the terminal for all mouse motion, not only drags. Terminals without OSC 22 (VTE,
+  iTerm2) ignore it.
 - Keys, on the focused pane: `<` `>` move its right border (the left one for the last pane of a
   row) by 4 cells; `+` `-` move its row's bottom border (the top one for the last row) by a line.
 - Limits: a pane is at least 10 cells wide, a row at least 3 lines high. No resizing while zoomed.

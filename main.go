@@ -50,11 +50,14 @@ func main() {
 
 	opts := []tea.ProgramOption{tea.WithAltScreen()}
 	if !*noMouse {
-		opts = append(opts, tea.WithMouseCellMotion())
+		// All motion, not just drags, so the pointer can change over a border that can be dragged.
+		opts = append(opts, tea.WithMouseAllMotion())
 	}
 	m := newModel(path, cfg)
 	m.noMouse = *noMouse
-	if _, err := tea.NewProgram(m, opts...).Run(); err != nil {
+	_, err = tea.NewProgram(m, opts...).Run()
+	fmt.Print(pointerSeq("")) // leave the terminal with its own pointer
+	if err != nil {
 		fail(err)
 	}
 }

@@ -86,7 +86,8 @@ has an error, the dashboard stays as it was and the status line shows the error.
 | drag a border | resize the panes or rows on either side |
 
 Drag the border between two panes, or between two rows, to resize them (the two borders turn
-the accent color while you drag). With a pane focused, `<` `>` narrow or widen it and `+` `-`
+the accent color while you drag). Over a border the pointer turns into a resize arrow, in
+terminals that support it (xterm, kitty, foot, Ghostty; others keep their usual pointer). With a pane focused, `<` `>` narrow or widen it and `+` `-`
 lower or raise its row. A pane is at least 10 cells wide and a row 3 lines high. New sizes are
 saved next to the config, `dashboard.json` → `dashboard.sizes.json`, as fractions, so they
 scale with the terminal; `=` deletes the file and goes back to the config's sizes. If the config

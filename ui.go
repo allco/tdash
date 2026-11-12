@@ -109,8 +109,9 @@ type model struct {
 	paused  bool
 	noMouse bool // the terminal has the mouse, so text can be selected
 
-	sizes *Sizes // pane sizes changed by dragging or the resize keys; nil: the config's
-	drag  *drag  // a border being dragged
+	sizes   *Sizes // pane sizes changed by dragging or the resize keys; nil: the config's
+	drag    *drag  // a border being dragged
+	pointer string // the mouse pointer shape asked of the terminal: "", col-resize or row-resize
 
 	splash   bool
 	splashUp bool
@@ -418,10 +419,11 @@ func (m *model) key(k string) tea.Cmd {
 		return m.setFlash("auto-refresh resumed", false)
 	case "m", "M":
 		m.noMouse = !m.noMouse
+		m.pointer = ""
 		if m.noMouse {
 			return tea.Batch(tea.DisableMouse, m.setFlash("mouse off: select text with it, m or esc to turn back on", false))
 		}
-		return tea.Batch(tea.EnableMouseCellMotion, m.setFlash("mouse on", false))
+		return tea.Batch(tea.EnableMouseAllMotion, m.setFlash("mouse on", false))
 	case "tab", "shift+tab":
 		if len(m.panes) == 0 {
 			return nil
@@ -440,7 +442,7 @@ func (m *model) key(k string) tea.Cmd {
 	case "esc":
 		if m.noMouse {
 			m.noMouse = false
-			return tea.Batch(tea.EnableMouseCellMotion, m.setFlash("mouse on", false))
+			return tea.Batch(tea.EnableMouseAllMotion, m.setFlash("mouse on", false))
 		}
 		if m.zoom {
 			m.zoom = false
@@ -568,11 +570,16 @@ func (m *model) mouse(msg tea.MouseMsg) tea.Cmd {
 		case tea.MouseActionRelease:
 			d := m.drag
 			m.drag = nil
+			m.hover(msg.X, msg.Y)
 			if d.moved {
 				return m.saveSizes()
 			}
 			return nil
 		}
+	}
+	if msg.Action == tea.MouseActionMotion && msg.Button == tea.MouseButtonNone {
+		m.hover(msg.X, msg.Y)
+		return nil
 	}
 	i, r := m.paneAt(msg.X, msg.Y)
 	switch {
@@ -616,6 +623,9 @@ func (m *model) mouse(msg tea.MouseMsg) tea.Cmd {
 		m.focus = i
 		if !m.zoom && msg.Y < m.height-1 {
 			m.drag = m.borderAt(msg.X, msg.Y+m.offset)
+			if m.drag != nil {
+				m.pointer = pointerFor(m.drag)
+			}
 		}
 		ps := m.panes[i]
 		// The line inside the frame: below the border, any error lines and the header.
@@ -624,6 +634,34 @@ func (m *model) mouse(msg tea.MouseMsg) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+// hover sets the pointer shape for what is under it: a resize arrow over a border that can be
+// dragged, the terminal's default anywhere else.
+func (m *model) hover(x, y int) {
+	m.pointer = ""
+	if m.help || m.splash || m.zoom || y >= m.height-1 {
+		return
+	}
+	if d := m.borderAt(x, y+m.offset); d != nil {
+		m.pointer = pointerFor(d)
+	}
+}
+
+func pointerFor(d *drag) string {
+	if d.rows {
+		return "row-resize"
+	}
+	return "col-resize"
+}
+
+// pointerSeq asks the terminal for a mouse pointer shape (OSC 22). Terminals that don't know it
+// (VTE, iTerm2) ignore it. "default" goes back to the terminal's own pointer.
+func pointerSeq(shape string) string {
+	if shape == "" {
+		shape = "default"
+	}
+	return "\x1b]22;" + shape + "\x1b\\"
 }
 
 // rowStarts gives the index of each row's first pane, and one past the last pane at the end.
@@ -881,7 +919,16 @@ func (m *model) runAction(ps *paneState) tea.Cmd {
 
 // ---- view ----
 
+// View draws the screen. The pointer shape rides along with every frame, so it reaches the
+// terminal in step with what is drawn; a zero-width sequence, it doesn't move anything.
 func (m *model) View() string {
+	if m.width == 0 {
+		return ""
+	}
+	return pointerSeq(m.pointer) + m.view()
+}
+
+func (m *model) view() string {
 	if m.width == 0 {
 		return ""
 	}
