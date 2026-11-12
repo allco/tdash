@@ -104,7 +104,7 @@ The width formula then becomes `available width / Σ spans × span`.
 | `m` | Mouse capture on / off; off leaves the mouse to the terminal for selecting text (§3.4) |
 | `↑ ↓` / `PgUp PgDn` (no focus) | Scroll the dashboard vertically |
 | `z` | Zoom: show the focused pane full-screen, `Esc` to go back |
-| `<` `>` / `+` `-` | Narrow / widen the focused pane; lower / raise its row (§3.5) |
+| `ctrl+shift+←` `→` / `↑` `↓` | Narrow / widen the focused pane; lower / raise its row (§3.5) |
 | `=` | Reset pane sizes to the config (§3.5) |
 
 ### 3.3 Keys inside a focused pane
@@ -141,8 +141,9 @@ off the terminal has the mouse, so text can be selected, and the status line sho
   `row-resize` (OSC 22, sent with each frame; `default` elsewhere and on exit). For that tdash
   asks the terminal for all mouse motion, not only drags. Terminals without OSC 22 (VTE,
   iTerm2) ignore it.
-- Keys, on the focused pane: `<` `>` move its right border (the left one for the last pane of a
-  row) by 4 cells; `+` `-` move its row's bottom border (the top one for the last row) by a line.
+- Keys, on the focused pane: `ctrl+shift+←` `→` move its right border (the left one for the last
+  pane of a row) by 4 cells, `→` widening it; `ctrl+shift+↑` `↓` move its row's bottom border (the
+  top one for the last row) by a line, `↓` making it taller.
 - Limits: a pane is at least 10 cells wide, a row at least 3 lines high. No resizing while zoomed.
 - Sizes are saved when a drag ends, or after a resize key, to a file next to the config:
   `dashboard.json` → `dashboard.sizes.json`. It holds fractions, so it scales with the terminal:

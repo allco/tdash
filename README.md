@@ -87,7 +87,7 @@ one and offers to restart. `tdash --update` does the same from the command line.
 | `pgup` `pgdn` `home` `end` | scroll by a page, or to the start / end |
 | `enter` | run the action of the selected row (open a URL, run a command, copy) |
 | `z` | zoom the focused pane to the full screen |
-| `<` `>` / `+` `-` | narrow / widen the focused pane; lower / raise its row |
+| `ctrl+shift+←` `→` / `↑` `↓` | narrow / widen the focused pane; lower / raise its row |
 | `=` | reset the pane sizes to the config |
 | `u` | update to a newer release, when the status line shows one (see [Updates](#updates)) |
 | `r` | reload the config and all data |
@@ -105,8 +105,8 @@ one and offers to restart. `tdash --update` does the same from the command line.
 
 Drag the border between two panes, or between two rows, to resize them (the two borders turn
 the accent color while you drag). Over a border the pointer turns into a resize arrow, in
-terminals that support it (xterm, kitty, foot, Ghostty; others keep their usual pointer). With a pane focused, `<` `>` narrow or widen it and `+` `-`
-lower or raise its row. A pane is at least 10 cells wide and a row 3 lines high. New sizes are
+terminals that support it (xterm, kitty, foot, Ghostty; others keep their usual pointer). With a
+pane focused, `ctrl+shift+←` `→` narrow or widen it and `ctrl+shift+↑` `↓` lower or raise its row. A pane is at least 10 cells wide and a row 3 lines high. New sizes are
 saved next to the config, `dashboard.json` → `dashboard.sizes.json`, as fractions, so they
 scale with the terminal; `=` deletes the file and goes back to the config's sizes. If the config
 changes so the saved sizes no longer fit (another row, or another pane in a row), they are

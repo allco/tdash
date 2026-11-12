@@ -519,23 +519,33 @@ func TestClickInsidePaneDoesNotResize(t *testing.T) {
 func TestResizeKeys(t *testing.T) {
 	m, _ := resizeModel(t, "")
 	m.key("tab") // the left pane
-	m.key(">")
-	m.key("+")
+	m.key("ctrl+shift+right")
+	m.key("ctrl+shift+down")
 	rects, _, _ := m.layout()
 	if rects[0].w != 50+sideStep || rects[0].h != 16 {
-		t.Errorf("after > +: %+v", rects[0])
+		t.Errorf("after ctrl+shift+→ ↓: %+v", rects[0])
 	}
 	m.key("tab")
 	m.key("tab") // the bottom pane: the last row moves the border above it
-	m.key("+")
+	m.key("ctrl+shift+down")
 	if rects, _, _ = m.layout(); rects[2].h != 15 {
-		t.Errorf("after + on the last row: %+v, want 15 high (14 + 1)", rects[2])
+		t.Errorf("after ↓ on the last row: %+v, want 15 high (14 + 1)", rects[2])
 	}
 	m.key("tab")
-	m.key("tab") // the right pane, the last in its row: > moves its left border
-	m.key(">")
+	m.key("tab") // the right pane, the last in its row: → moves its left border
+	m.key("ctrl+shift+right")
 	if rects, _, _ = m.layout(); rects[1].x != 50 || rects[1].w != 50 {
-		t.Errorf("after > on the last pane of a row: %+v, want back at 50", rects[1])
+		t.Errorf("after → on the last pane of a row: %+v, want back at 50", rects[1])
+	}
+	m.key("ctrl+shift+left")
+	m.key("ctrl+shift+up")
+	if rects, _, _ = m.layout(); rects[1].x != 50+sideStep || rects[1].h != 14 {
+		t.Errorf("after ← ↑: %+v", rects[1])
+	}
+	m.key(">") // the old keys do nothing now
+	m.key("+")
+	if r, _, _ := m.layout(); r[1] != rects[1] {
+		t.Errorf("an old key resized: %+v", r[1])
 	}
 }
 

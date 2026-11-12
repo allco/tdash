@@ -465,7 +465,7 @@ func (m *model) key(k string) tea.Cmd {
 		if m.focus >= 0 {
 			m.zoom = !m.zoom
 		}
-	case "<", ">", "+", "-":
+	case "ctrl+shift+left", "ctrl+shift+right", "ctrl+shift+up", "ctrl+shift+down":
 		if m.focus >= 0 && !m.zoom {
 			return m.resizeFocused(k)
 		}
@@ -764,7 +764,7 @@ func (m *model) moveRowBorder(a, y int) bool {
 	return true
 }
 
-// resizeFocused handles < > (the focused pane's width) and + - (its row's height). It moves the
+// resizeFocused handles ctrl+shift+← → (the focused pane's width) and ↑ ↓ (its row's height). It moves the
 // border after the pane, or the one before it for the last pane of a row or the last row.
 func (m *model) resizeFocused(k string) tea.Cmd {
 	rects, _, _ := m.layout()
@@ -776,9 +776,9 @@ func (m *model) resizeFocused(k string) tea.Cmd {
 	r := rects[m.focus]
 	moved := false
 	switch k {
-	case "<", ">":
+	case "ctrl+shift+left", "ctrl+shift+right":
 		d := sideStep
-		if k == "<" {
+		if k == "ctrl+shift+left" {
 			d = -d
 		}
 		switch {
@@ -789,7 +789,7 @@ func (m *model) resizeFocused(k string) tea.Cmd {
 		}
 	default:
 		d := 1
-		if k == "-" {
+		if k == "ctrl+shift+up" {
 			d = -1
 		}
 		switch {
@@ -1205,7 +1205,8 @@ var helpKeys = [][2]string{
 	{"", "tables: ↑↓ select a row · charts: ←→ move the cursor"},
 	{"enter", "run the action of the selected row"},
 	{"z", "zoom the focused pane to the full screen"},
-	{"< > + -", "narrow / widen the focused pane, lower / raise its row"},
+	{"ctrl+shift+← →", "narrow / widen the focused pane"},
+	{"ctrl+shift+↑ ↓", "lower / raise the focused pane's row"},
 	{"=", "reset pane sizes to the config"},
 	{"u", "update to a newer release, when the status line shows one"},
 	{"mouse", "click focuses, wheel scrolls (shift+wheel sideways), drag a border to resize"},

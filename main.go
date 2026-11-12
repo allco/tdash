@@ -110,7 +110,8 @@ Keys:
                     scroll by a page, to the start / end
   enter             run the action of the selected row
   z                 zoom the focused pane to the full screen
-  < > + -           narrow / widen the focused pane, lower / raise its row
+  ctrl+shift+← →    narrow / widen the focused pane
+  ctrl+shift+↑ ↓    lower / raise the focused pane's row
   =                 reset pane sizes to the config (deletes <config>.sizes.json)
   u                 update to a newer release, when the status line shows one
   r                 reload the config and all data
