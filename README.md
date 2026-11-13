@@ -29,6 +29,12 @@ yet, is in [SPEC.md](SPEC.md).
 Prebuilt binaries for macOS, Linux and Windows are attached to each
 [release](https://github.com/allco/tdash/releases).
 
+With [Homebrew](https://brew.sh) (macOS and Linux):
+
+```sh
+brew install allco/tap/tdash
+```
+
 With Go 1.27 or newer:
 
 ```sh
@@ -75,6 +81,8 @@ one and offers to restart. `tdash --update` does the same from the command line.
   folder (`~/.cache/tdash/update.json` on Linux), so the next start shows it at once.
 - If the binary's folder isn't writable, tdash says so and leaves it alone.
 - `--no-update-check`, or `TDASH_NO_UPDATE_CHECK=1`, turns the check off.
+- A Homebrew install never updates itself (the status line stays quiet and `--update` says
+  so); `brew upgrade tdash` updates it.
 
 ## Keys and mouse
 
