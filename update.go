@@ -241,10 +241,27 @@ func notWritable(exe string, err error) error {
 	return err
 }
 
+// brewManaged reports whether the running binary is one Homebrew installed: it resolves to a path
+// in a Cellar. Homebrew then owns updates, so the self-update stays off and --update points to
+// brew upgrade instead.
+func brewManaged() bool {
+	exe, err := exeFn()
+	if err != nil {
+		return false
+	}
+	if p, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = p
+	}
+	return strings.Contains(filepath.ToSlash(exe), "/Cellar/")
+}
+
 // ---- the command line: --update ----
 
 // updateCLI is --update: check, ask, install. It reads the answer from in.
 func updateCLI(app, current string, in io.Reader, out io.Writer) error {
+	if brewManaged() {
+		return fmt.Errorf("this %s was installed with Homebrew; update it with: brew upgrade %s", app, app)
+	}
 	if _, ok := parseVersion(current); !ok {
 		return fmt.Errorf("this %s (%s) wasn't built from a release tag, so it can't tell what is newer", app, current)
 	}
@@ -307,10 +324,10 @@ type updater struct {
 }
 
 // newUpdater sets up the updater. It shows a newer release seen by an earlier run right away,
-// and stays off for builds that aren't from a release tag.
+// and stays off for builds that aren't from a release tag and for Homebrew installs.
 func newUpdater(app, current string, off bool) *updater {
 	u := &updater{app: app, current: current, off: off}
-	if _, ok := parseVersion(current); !ok {
+	if _, ok := parseVersion(current); !ok || brewManaged() {
 		u.off = true
 	}
 	if !u.off {
