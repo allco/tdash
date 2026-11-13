@@ -618,3 +618,18 @@ func TestHelpShowsAbout(t *testing.T) {
 		t.Errorf("m in the help: help %v, noMouse %v", m.help, m.noMouse)
 	}
 }
+
+func TestGettingStarted(t *testing.T) {
+	var b strings.Builder
+	printGettingStarted(&b)
+	for _, want := range []string{
+		"No ./tdash.json here",
+		"https://github.com/allco/tdash/tree/main/docs",
+		"https://github.com/allco/tdash/tree/main/examples",
+		"ask an AI assistant",
+	} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, b.String())
+		}
+	}
+}

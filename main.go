@@ -50,6 +50,10 @@ func main() {
 	}
 	cfg, err := loadConfig(path)
 	if err != nil {
+		if os.IsNotExist(err) && *configFlag == "" && flag.NArg() == 0 {
+			printGettingStarted(os.Stdout)
+			return
+		}
 		if os.IsNotExist(err) {
 			fail(fmt.Errorf("no config at %s (pass one: tdash path/to/dashboard.json; see examples/)", path))
 		}
@@ -77,6 +81,42 @@ func main() {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "tdash:", err)
 	os.Exit(1)
+}
+
+// printGettingStarted is what tdash shows when it is run with no arguments and there is no
+// ./tdash.json: where the config format and the examples are, and how to have an AI assistant
+// write a config.
+func printGettingStarted(w io.Writer) {
+	docs := projectURL("tdash") + "/tree/main/docs"
+	examples := projectURL("tdash") + "/tree/main/examples"
+	fmt.Fprintf(w, `tdash %[1]s: a terminal dashboard you describe in one JSON file.
+
+No ./%[2]s here. Run it with a config:
+
+  tdash path/to/dashboard.json
+
+To write a config:
+
+  Format reference  %[3]s
+  Examples          %[4]s
+
+Or ask an AI assistant to write one. Give it the reference link above
+and describe what you want to see, for example:
+
+  "Write a tdash config (%[3]s)
+   that shows CPU, memory and disk usage as charts, and the top 10
+   processes by CPU as a table, refreshing every 5 seconds."
+
+  "Write a tdash config that shows my open GitHub pull requests in a
+   table and the latest CI runs of the repo in this folder, using the
+   gh command line."
+
+  "Write a tdash config for my Kubernetes cluster: pods that aren't
+   Running, recent events, and node CPU and memory, using kubectl."
+
+Save it as %[2]s and run tdash, or pass its path.
+tdash --help lists the options.
+`, version, defaultConfig, docs, examples)
 }
 
 func printUsage(w io.Writer) {

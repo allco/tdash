@@ -10,7 +10,8 @@ them with examples, and [examples/demo.json](../examples/demo.json) uses all of 
   path, e.g. `layout.rows[1].panes[0].chart: unknown value "pie" (want spline or histogram)`.
 - Relative paths (`file`, command working directories) are relative to the directory of the
   config file.
-- `tdash` with no argument reads `./tdash.json`. tdash watches the file and reloads within a
+- `tdash` with no argument reads `./tdash.json`; when there is none, it prints where to find
+  this reference and the examples instead. tdash watches the file and reloads within a
   second of a save. An invalid save keeps the dashboard as it was and shows the error.
 
 Durations (`refresh`, `timeout`) use Go syntax: `500ms`, `5s`, `1m30s`, `2h`.

@@ -60,6 +60,9 @@ tdash --help                     # also --usage and -h
 tdash --version
 ```
 
+With no argument and no `./tdash.json`, tdash prints where to find the config reference and
+the examples, and example prompts for asking an AI assistant to write a config.
+
 On start, a splash shows while the first data loads (at least 1.2 seconds, at most 3). Any key
 skips it.
 
