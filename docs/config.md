@@ -96,8 +96,8 @@ A title can show values from the pane's data, filled in on every refresh:
 ```
 
 - Until the data arrives, or when a path finds nothing (or `null`), the placeholder is left out.
-  If it stands alone in brackets, as in `(…)` or `[…]`, the brackets go too: `Pods ({{rows}})`
-  shows as `Pods` while loading.
+  A bracket pair, `(…)` or `[…]`, whose placeholders all have no value is left out as a whole,
+  with the spaces before it: `Plan ({{$.counts.open}} open)` shows as `Plan` while loading.
 - A markdown pane given anything other than a string or an array has nothing to count, so
   `{{rows}}` is left out.
 - Numbers show as they are (`3`, `2.5`); arrays and objects show as JSON.

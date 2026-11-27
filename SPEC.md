@@ -467,9 +467,9 @@ A pane title can carry live values, so a list pane can show how long it is:
 - `{{$.path}}` is a select path (§4.3) applied to the source's data **before** the pane's own
   `select`, so a pane can show a value next to the part it displays, such as a count the supplier
   computes: `"Decisions ({{$.counts.decisions}})"`.
-- Before the data arrives, or when a path finds nothing, the placeholder is left out, together
-  with brackets it stands alone in: the title reads `Decisions` until the count is known. A raw
-  `{{…}}` is never shown.
+- Before the data arrives, or when a path finds nothing, the placeholder is left out. So is a
+  bracket pair, `(…)` or `[…]`, whose placeholders all have no value: the title reads
+  `Decisions` until the count is known. A raw `{{…}}` is never shown.
 - The config check rejects unclosed `{{`, unknown names and bad paths, with the field path
   (`layout.rows[0].panes[2].title: …`).
 - Titles are filled before the `⟳` loading mark is added and before the title is cut to fit.

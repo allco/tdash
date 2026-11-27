@@ -701,12 +701,13 @@ func TestTitlePlaceholders(t *testing.T) {
 	    {"type": "markdown", "title": "Decisions ({{$.counts.decisions}}) of {{$.counts.all}}", "data": {"supplier": "s", "select": "$.text"}},
 	    {"type": "chart", "chart": "spline", "title": "Load ({{rows}})", "data": {"supplier": "s", "select": "$.load"}},
 	    {"type": "markdown", "title": "Gone ({{$.counts.missing}})", "data": {"supplier": "s", "select": "$.text"}},
-	    {"type": "markdown", "title": "Bad select ({{rows}})", "data": {"supplier": "s", "select": "$.nope"}}
+	    {"type": "markdown", "title": "Bad select ({{rows}})", "data": {"supplier": "s", "select": "$.nope"}},
+	    {"type": "markdown", "title": "Plan ({{rows}} open) [x] (y {{$.gone}}) [{{$.counts.all}}", "data": {"supplier": "s", "select": "$.notes"}}
 	  ]}]}
 	}`)
 
 	// Before any data: placeholders are left out, with their brackets.
-	want := []string{"Objects", "Arrays", "Notes", "Text", "Decisions of", "Load", "Gone", "Bad select"}
+	want := []string{"Objects", "Arrays", "Notes", "Text", "Decisions of", "Load", "Gone", "Bad select", "Plan [x] ["}
 	if got := titles(); !slices.Equal(got, want) {
 		t.Errorf("before data:\n got %q\nwant %q", got, want)
 	}
@@ -723,7 +724,7 @@ func TestTitlePlaceholders(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.Update(dataMsg{gen: m.gen, key: "supplier:s", value: v})
-	want = []string{"Objects (3)", "Arrays [2]", "Notes (2)", "Text (3)", "Decisions (4) of 9", "Load (5)", "Gone", "Bad select"}
+	want = []string{"Objects (3)", "Arrays [2]", "Notes (2)", "Text (3)", "Decisions (4) of 9", "Load (5)", "Gone", "Bad select", "Plan (2 open) [x] [9"}
 	if got := titles(); !slices.Equal(got, want) {
 		t.Errorf("with data:\n got %q\nwant %q", got, want)
 	}
