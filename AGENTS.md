@@ -141,11 +141,16 @@ Not built yet (see SPEC.md §5.4, §8, §10, §11):
   example config mentions it, but the code rejects it as an unknown field)
 - links in Markdown can't be selected or opened yet; only table rows have actions
 
-Releases: an annotated `vX.Y.Z` tag (message `tdash vX.Y.Z`) pushed to origin starts the release
-workflow (README, "CI and releases"). **Each new version requires release notes on its GitHub
-release**: a short user-facing summary of what changed (features, behaviour changes, fixes), not
-only the generated commit list. `gh` isn't installed here, so draft the notes and hand them to the
-user to paste on the release page.
+Releases: an annotated `vX.Y.Z` tag pushed to origin starts the release workflow (README, "CI and
+releases"). **Every release must have release notes.** Write them by reading the commits since
+the previous tag (`git log --stat vPREV..HEAD`, and the diffs where a message isn't enough): a
+short user-facing summary under `## What's changed` (features, behaviour changes, fixes; leave out
+docs-only and internal changes unless they matter to users). They go in the tag message: first
+line `tdash vX.Y.Z`, a blank line, then the Markdown notes. Tag with
+`git tag -a vX.Y.Z --cleanup=whitespace -F <file>`, or git drops the `#` headings. The workflow
+publishes the message after its first line as the release notes, adds a "Full Changelog" link, and
+fails if the notes are empty or the tag is lightweight. To fix a release's notes, re-tag the same
+commit with `-f` and `git push -f origin vX.Y.Z`; the workflow then only edits the notes.
 
 Open questions for the user are listed in SPEC.md §10.
 

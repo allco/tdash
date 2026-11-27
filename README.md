@@ -318,13 +318,26 @@ terminal cell, so emoji take two cells as they do in a terminal. The PNGs are st
   with each binary, an archive per platform (with the README, SPEC and examples) and a
   `checksums.txt`. A tag with a suffix, like `v0.2.0-rc.1`, becomes a pre-release.
 
-To release:
+Every release needs release notes: what changed for users (new features, changed behaviour,
+fixes), worked out from the commits since the previous tag (`git log v0.0.9..HEAD`). The notes
+are the message of the annotated tag, after its first line; the workflow publishes them and adds a
+"Full Changelog" link to the previous tag. A lightweight tag, or a tag with no notes, fails the
+release. To release:
 
 ```sh
-git tag v0.1.0
+cat > notes.txt <<'END'
+tdash v0.1.0
+
+## What's changed
+
+- …
+END
+git tag -a v0.1.0 --cleanup=whitespace -F notes.txt
 git push origin v0.1.0
 ```
 
-Every new version needs release notes on its GitHub release: what changed for users (new
-features, changed behaviour, fixes), not just the list of commits that `--generate-notes` adds.
-Write them on the release page once the workflow has created the release.
+`--cleanup=whitespace` keeps the Markdown headings; by default git drops lines that start with `#`.
+
+To change the notes of a release that exists, tag the same commit again with new notes and
+force-push the tag (`git tag -fa …`, `git push -f origin v0.1.0`). The workflow then only updates
+the release's notes; it doesn't build or upload anything.

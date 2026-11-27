@@ -15,15 +15,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the previous tag, for the changelog link
+
+      # The release notes are the annotated tag's message, after its first line (the title).
+      # checkout may leave the tag lightweight, so fetch the tag object itself.
+      - name: Release notes from the tag
+        env:
+          VERSION: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          git fetch --force origin "refs/tags/$VERSION:refs/tags/$VERSION"
+          if [ "$(git cat-file -t "$VERSION")" != tag ]; then
+            echo "::error::$VERSION is not an annotated tag; its message holds the release notes"
+            exit 1
+          fi
+          git tag -l --format='%(contents:body)' "$VERSION" > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::the tag message of $VERSION has no release notes after its first line"
+            exit 1
+          fi
+          prev=$(git describe --tags --abbrev=0 "$VERSION^" 2>/dev/null || true)
+          if [ -n "$prev" ]; then
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' "$REPO" "$prev" "$VERSION" >> notes.md
+          fi
+          cat notes.md
+
+      # A tag pushed again (to fix its notes) updates the existing release's notes and stops.
+      - name: Existing release
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            gh release edit "$VERSION" --notes-file notes.md
+            echo "done=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-go@v5
+        if: steps.existing.outputs.done != 'true'
         with:
           go-version-file: go.mod
 
       - name: Test
+        if: steps.existing.outputs.done != 'true'
         run: go test ./...
 
       - name: Build binaries
+        if: steps.existing.outputs.done != 'true'
         env:
           VERSION: ${{ github.ref_name }}
           CGO_ENABLED: "0"
@@ -55,6 +95,7 @@ jobs:
           ls -l dist
 
       - name: Create release
+        if: steps.existing.outputs.done != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ github.ref_name }}
@@ -63,6 +104,6 @@ jobs:
           case "$VERSION" in *-*) flags+=(--prerelease) ;; esac
           gh release create "$VERSION" dist/* \
             --title "tdash $VERSION" \
-            --generate-notes \
+            --notes-file notes.md \
             --verify-tag \
             "${flags[@]}"
