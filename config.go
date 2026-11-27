@@ -347,6 +347,9 @@ func (c *Config) validatePane(p *PaneConfig, at string) error {
 	if _, err := parseRefresh(p.Refresh); err != nil {
 		return fmt.Errorf("%s.refresh: %w", at, err)
 	}
+	if _, err := parseTitle(p.Title); err != nil {
+		return fmt.Errorf("%s.title: %w", at, err)
+	}
 	for i, col := range p.Columns {
 		if err := col.check(); err != nil {
 			return fmt.Errorf("%s.columns[%d].%w", at, i, err)

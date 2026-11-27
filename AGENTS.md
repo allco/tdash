@@ -52,6 +52,7 @@ Everything is in one `package main` at the root:
 | `update_source.go` | where releases come from: GitHub's API and release downloads (`latestRelease`, `fetchAsset`) |
 | `restart.go`, `restart_windows.go` | `restart`: exec the updated binary (Unix), or run it and exit (Windows) |
 | `sizes.go` | `Sizes` (fractions per row and pane), the `<config>.sizes.json` file next to the config, `split` (cumulative rounding down, as spans), `sizesOf` (a layout → fractions). Dragging and the `ctrl+shift+arrows` and `=` keys are in `ui.go` (`borderAt`, `moveColBorder`, `moveRowBorder`); so is the resize pointer (`hover`, `pointerSeq`: OSC 22 put in front of every `View()`, which is why the mouse runs in all-motion mode) |
+| `title.go` | pane title placeholders: `parseTitle` (`{{rows}}`, `{{$.path}}`, checked at load), `renderTitle` (an unresolved placeholder is left out with brackets it stands alone in), `model.title` (`{{rows}}` from `Pane.Count`, paths on the source's value before `select`) |
 | `markup.go` | the Markdown renderer (line-based, no library), inline parsing into styled `seg`s, color tags `{red on yellow}…{/}`, `wrapSegs` (word wrap that keeps styles per line), `joinContinuations` |
 | `pane.go` | the `Pane` interface and the `mdPane`, `tablePane`, `splinePane` (braille + Catmull-Rom) and `histPane` panes |
 | `ui.go` | the root model: sources and refresh timers, `deliver` (select → `SetData`), keys, mouse, actions, config watching, `frame()` (border, title, error lines, scroll, clip, scrollbars), status line, help |
@@ -139,7 +140,9 @@ Not built yet (see SPEC.md §5.4, §8, §10, §11):
 - JSON Schema generation, themes beyond `accent`/`border`, `theme.focusBackground` (the spec's
   example config mentions it, but the code rejects it as an unknown field)
 - links in Markdown can't be selected or opened yet; only table rows have actions
-- no release has been tagged yet (`git tag v0.1.0 && git push origin v0.1.0` starts one)
+
+Releases: an annotated `vX.Y.Z` tag (message `tdash vX.Y.Z`) pushed to origin starts the release
+workflow (README, "CI and releases").
 
 Open questions for the user are listed in SPEC.md §10.
 

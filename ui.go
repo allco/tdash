@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -57,7 +58,10 @@ type paneState struct {
 	pane   Pane
 	srcKey string // "" when the pane has no data source
 	sel    []selectStep
+	title  []titlePart // nil when the title has no placeholders
 	err    error
+	// hasData is set once the pane has taken data, so {{rows}} means something.
+	hasData bool
 
 	yoff, xoff int
 	follow     bool // keep the content cursor in view on the next render
@@ -193,6 +197,9 @@ func (m *model) build(cfg *Config, old *model) {
 			ps.pane, ps.yoff, ps.xoff = o.pane, o.yoff, o.xoff
 		}
 		ps.sel, _ = parseSelect(pc.Data.Select)
+		if parts, _ := parseTitle(pc.Title); slices.ContainsFunc(parts, func(p titlePart) bool { return p.ph }) {
+			ps.title = parts
+		}
 		paneRefresh, _ := parseRefresh(pc.Refresh)
 		switch {
 		case pc.Data.Supplier != "":
@@ -300,7 +307,9 @@ func (m *model) deliver(i int) {
 	}
 	if err := ps.pane.SetData(v); err != nil {
 		ps.err = err
+		return
 	}
+	ps.hasData = true
 }
 
 func (m *model) loadingAny() bool {
@@ -1045,7 +1054,7 @@ func (m *model) frame(i, w, h int) []string {
 	}
 
 	// Title, with a mark while its data is loading.
-	title := ps.cfg.Title
+	title := m.title(ps)
 	src := m.sources[ps.srcKey]
 	if src != nil && src.loading {
 		title = strings.TrimSpace(title + " ⟳")

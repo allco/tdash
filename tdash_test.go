@@ -633,3 +633,119 @@ func TestGettingStarted(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTitle(t *testing.T) {
+	cases := map[string]string{
+		"Plain":                  "",
+		"Done ({{rows}})":        "",
+		"Q {{ $.a.b }}":          "",
+		"Open {{rows":            `unclosed "{{"`,
+		"Open {{count}}":         "unknown placeholder {{count}}",
+		"Open {{}}":              "empty placeholder",
+		"Open {{$.a[}}":          `{{$.a[}}: missing ]`,
+		"Open {{$a}}":            `unexpected 'a'`,
+		"Stray }} is plain text": "",
+	}
+	for title, want := range cases {
+		_, err := parseTitle(title)
+		switch {
+		case want == "" && err != nil:
+			t.Errorf("%q: %v", title, err)
+		case want != "" && (err == nil || !strings.Contains(err.Error(), want)):
+			t.Errorf("%q: got %v, want %q", title, err, want)
+		}
+	}
+
+	path := t.TempDir() + "/c.json"
+	src := `{"layout": {"rows": [{"panes": [{"type": "table"}, {"type": "table", "title": "X {{nope}}"}]}]}}`
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadConfig(path)
+	if want := "layout.rows[0].panes[1].title: unknown placeholder {{nope}}"; err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("got %v, want %q", err, want)
+	}
+}
+
+// titleModel builds a dashboard from config JSON and returns it with its panes' titles.
+func titleModel(t *testing.T, src string) (*model, func() []string) {
+	t.Helper()
+	path := t.TempDir() + "/dash.json"
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := newModel(path, cfg)
+	m.splash = false
+	m.Update(tea.WindowSizeMsg{Width: 200, Height: 30})
+	return m, func() []string {
+		var out []string
+		for _, ps := range m.panes {
+			out = append(out, m.title(ps))
+		}
+		return out
+	}
+}
+
+func TestTitlePlaceholders(t *testing.T) {
+	m, titles := titleModel(t, `{
+	  "suppliers": {"s": {"command": "true"}},
+	  "layout": {"rows": [{"panes": [
+	    {"type": "table", "title": "Objects ({{rows}})", "data": {"supplier": "s", "select": "$.items"}},
+	    {"type": "table", "title": "Arrays [{{rows}}]", "data": {"supplier": "s", "select": "$.grid"}},
+	    {"type": "markdown", "title": "Notes ({{rows}})", "data": {"supplier": "s", "select": "$.notes"}},
+	    {"type": "markdown", "title": "Text ({{rows}})", "data": {"supplier": "s", "select": "$.text"}},
+	    {"type": "markdown", "title": "Decisions ({{$.counts.decisions}}) of {{$.counts.all}}", "data": {"supplier": "s", "select": "$.text"}},
+	    {"type": "chart", "chart": "spline", "title": "Load ({{rows}})", "data": {"supplier": "s", "select": "$.load"}},
+	    {"type": "markdown", "title": "Gone ({{$.counts.missing}})", "data": {"supplier": "s", "select": "$.text"}},
+	    {"type": "markdown", "title": "Bad select ({{rows}})", "data": {"supplier": "s", "select": "$.nope"}}
+	  ]}]}
+	}`)
+
+	// Before any data: placeholders are left out, with their brackets.
+	want := []string{"Objects", "Arrays", "Notes", "Text", "Decisions of", "Load", "Gone", "Bad select"}
+	if got := titles(); !slices.Equal(got, want) {
+		t.Errorf("before data:\n got %q\nwant %q", got, want)
+	}
+
+	v, err := decodeJSON([]byte(`{
+	  "items": [{"a": 1}, {"a": 2}, {"a": 3}],
+	  "grid": [["h1", "h2"], [1, 2], [3, 4]],
+	  "notes": ["- one", "", "- two", "  "],
+	  "text": "# Head\n\n- a\n- b\n",
+	  "counts": {"decisions": 4, "all": 9},
+	  "load": {"x": [1, 2, 3, 4, 5], "y": [1, 2]}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Update(dataMsg{gen: m.gen, key: "supplier:s", value: v})
+	want = []string{"Objects (3)", "Arrays [2]", "Notes (2)", "Text (3)", "Decisions (4) of 9", "Load (5)", "Gone", "Bad select"}
+	if got := titles(); !slices.Equal(got, want) {
+		t.Errorf("with data:\n got %q\nwant %q", got, want)
+	}
+
+	// The rendered border shows the filled title, never the raw placeholder.
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, " Objects (3) ") || strings.Contains(view, "{{") {
+		t.Errorf("the view lacks the filled title or shows a placeholder:\n%s", view)
+	}
+}
+
+func TestTitleLoadingMarkAndCut(t *testing.T) {
+	m, _ := titleModel(t, `{"layout": {"rows": [{"panes": [
+	  {"type": "markdown", "title": "A long title that will not fit ({{rows}})", "data": {"command": "true"}}
+	]}]}}`)
+	m.sources["pane:0"].loading = true
+	top := ansi.Strip(m.frame(0, 20, 10)[0])
+	if w := ansi.StringWidth(top); w != 20 || !strings.Contains(top, "…") {
+		t.Errorf("top border %q (width %d), want it cut to 20 with …", top, w)
+	}
+	top = ansi.Strip(m.frame(0, 80, 10)[0])
+	if !strings.Contains(top, " A long title that will not fit ⟳ ") {
+		t.Errorf("top border %q, want the title without its placeholder and with ⟳", top)
+	}
+}

@@ -35,6 +35,8 @@ type Pane interface {
 	Click(line int)
 	// Selected is the selected item, for actions, or nil.
 	Selected() any
+	// Count is what a title's {{rows}} shows, or -1 when the data has nothing to count.
+	Count() int
 }
 
 func newPane(cfg PaneConfig, accent string) Pane {
@@ -92,21 +94,33 @@ func plain(v any) any {
 type mdPane struct {
 	accent string
 	text   string
+	count  int
 }
 
 func (p *mdPane) SetData(v any) error {
 	switch t := v.(type) {
 	case string:
 		p.text = t
+		p.count = 0
+		for l := range strings.SplitSeq(t, "\n") {
+			if strings.TrimSpace(l) != "" {
+				p.count++
+			}
+		}
 	case []any:
 		lines := make([]string, len(t))
+		p.count = 0
 		for i, l := range t {
 			lines[i] = formatValue(l)
+			if strings.TrimSpace(lines[i]) != "" {
+				p.count++
+			}
 		}
 		p.text = strings.Join(lines, "\n")
 	case nil:
-		p.text = ""
+		p.text, p.count = "", 0
 	default:
+		p.count = -1
 		// Anything else is shown as JSON, which beats an error while setting up a supplier.
 		b, _ := json.MarshalIndent(plain(v), "", "  ")
 		p.text = "```\n" + string(b) + "\n```"
@@ -121,6 +135,7 @@ func (p *mdPane) Content(w, h int, focused bool) content {
 func (p *mdPane) Key(string, int) bool { return false }
 func (p *mdPane) Click(int)            {}
 func (p *mdPane) Selected() any        { return nil }
+func (p *mdPane) Count() int           { return p.count }
 
 // ---- table ----
 
@@ -217,6 +232,8 @@ func (p *tablePane) SetData(v any) error {
 	p.clampSel()
 	return nil
 }
+
+func (p *tablePane) Count() int { return len(p.rows) }
 
 func (p *tablePane) clampSel() {
 	if p.sel >= len(p.rows) {
@@ -769,6 +786,7 @@ func (p *splinePane) Key(k string, _ int) bool {
 
 func (p *splinePane) Click(int)     {}
 func (p *splinePane) Selected() any { return nil }
+func (p *splinePane) Count() int    { return p.points() }
 
 // moveCursor moves a chart cursor with left/right/home/end.
 func moveCursor(cur *int, n int, k string) bool {
@@ -942,3 +960,4 @@ func (p *histPane) Key(k string, _ int) bool {
 
 func (p *histPane) Click(int)     {}
 func (p *histPane) Selected() any { return nil }
+func (p *histPane) Count() int    { return len(p.values) + len(p.bars) }

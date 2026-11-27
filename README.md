@@ -187,6 +187,11 @@ past that, the dashboard scrolls. A number instead of `"auto"` fixes the unit at
 
 Every pane has `type`, and optionally `title`, `span`, `data`, `refresh` and `action`.
 
+A title can show live values: `{{rows}}` is how many rows, lines or points the pane shows, and
+`{{$.path}}` picks a value from the source's data before the pane's `select`. `"Pods ({{rows}})"`
+reads `Pods (12)`; until the data arrives it reads `Pods`. See
+[Title placeholders](docs/config.md#title-placeholders).
+
 | `type` | Data | Notes |
 |---|---|---|
 | `table` | an array of objects; an array of arrays (the first is the header); or `{"columns": […], "rows": […]}` | `columns`: `key`, `title`, `align` (`left`/`right`; numbers align right by default), `colors`, `width` (cells, `"auto"` or a share like `"2fr"`), `min`, `max`, `cut` (`end`/`start`/`middle`) |
@@ -295,6 +300,7 @@ terminal cell, so emoji take two cells as they do in a terminal. The PNGs are st
 | `sizes.go` | pane sizes changed with the mouse or keys, and their `.sizes.json` file |
 | `update.go`, `update_source.go`, `restart*.go` | the update check and self-update; `update_source.go` is where releases come from (GitHub) |
 | `pane.go` | the table, Markdown, spline and histogram panes |
+| `title.go` | pane title placeholders (`{{rows}}`, `{{$.path}}`) |
 | `markup.go` | the Markdown renderer and color tags |
 | `ui.go` | the Bubble Tea app: refresh timers, focus, keys, mouse, the pane frame, the status line |
 | `splash.go` | the start-up splash and the logo |

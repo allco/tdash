@@ -71,7 +71,7 @@ Fields every pane type takes:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `type` | `"table"` \| `"markdown"` \| `"chart"` | | **Required** |
-| `title` | string | none | Shown in the top border |
+| `title` | string | none | Shown in the top border. Can hold placeholders: see [Title placeholders](#title-placeholders) |
 | `span` | integer ≥ 1 | `1` | Share of the row's width: `span: 2` next to `span: 1` gets two thirds |
 | `data` | [data](#data) | none | Where the pane's content comes from. A pane without data is empty |
 | `refresh` | duration \| `"off"` | none | Refresh for this pane's data. See [Refresh](#refresh) |
@@ -79,6 +79,32 @@ Fields every pane type takes:
 | `id` | string | none | Accepted, but not used yet |
 
 Tab order is row by row, left to right.
+
+### Title placeholders
+
+A title can show values from the pane's data, filled in on every refresh:
+
+| Placeholder | Value |
+|---|---|
+| `{{rows}}` | How many items the pane shows: a table's rows (without the header row of an array of arrays); a markdown pane's non-empty lines (an array's non-empty items); a chart's points (a spline's longest series, a histogram's values or bars) |
+| `{{$.path}}` | A value picked with a [select path](#data) from the source's data **before** the pane's own `select`: the named supplier's whole output, or the pane's own data |
+
+```jsonc
+{ "type": "table", "title": "Pods ({{rows}})", "data": { "supplier": "k8s", "select": "$.items" } }
+{ "type": "markdown", "title": "Decisions ({{$.counts.decisions}})",
+  "data": { "supplier": "status", "select": "$.decisions" } }
+```
+
+- Until the data arrives, or when a path finds nothing (or `null`), the placeholder is left out.
+  If it stands alone in brackets, as in `(…)` or `[…]`, the brackets go too: `Pods ({{rows}})`
+  shows as `Pods` while loading.
+- A markdown pane given anything other than a string or an array has nothing to count, so
+  `{{rows}}` is left out.
+- Numbers show as they are (`3`, `2.5`); arrays and objects show as JSON.
+- Placeholders are checked when the config loads. Anything other than `{{rows}}` or a valid
+  `{{$…}}` path is an error, such as `layout.rows[0].panes[1].title: unknown placeholder {{n}}`.
+- The loading mark `⟳` follows the filled title, and a title too long for the border is cut
+  with `…`.
 
 ### `table`
 
