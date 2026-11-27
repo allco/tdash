@@ -435,8 +435,9 @@ Auto-refresh is set in the config. It works at two levels:
   its `timeout` (default `10s`, §4.4), it is cancelled and the panes that use it show an error.
 - Focus, selection and scroll position are kept across refreshes. For `log` panes,
   the view stays pinned to the bottom unless you have scrolled up.
-- The pane title shows a small indicator while data is loading (`⟳`). The status line
-  shows the time of the last refresh for the focused pane.
+- The pane title shows a small indicator while data is loading (`⟳`), once the fetch has
+  run for a second, so quick refreshes don't flicker. The status line shows the time of the
+  last refresh for the focused pane.
 - *Recommended:* `p` pauses or resumes auto-refresh for the whole dashboard.
 
 ### 6.4 Actions on selectable items

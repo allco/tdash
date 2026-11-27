@@ -45,7 +45,8 @@ type source struct {
 	interval time.Duration // 0: only on R
 	timeout  time.Duration
 	loading  bool
-	has      bool // value holds data from a successful fetch
+	started  time.Time // when the running fetch began
+	has      bool      // value holds data from a successful fetch
 	value    any
 	err      error
 	updated  time.Time
@@ -267,14 +268,26 @@ func (m *model) fetchCmd(key string) tea.Cmd {
 	if src == nil || src.loading {
 		return nil
 	}
-	src.loading = true
+	src.loading, src.started = true, time.Now()
 	gen, ref, timeout, dir := m.gen, src.ref, src.timeout, m.cfg.dir
-	return func() tea.Msg {
+	return tea.Batch(func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		v, err := fetch(ctx, ref, dir)
 		return dataMsg{gen: gen, key: key, value: v, err: err}
-	}
+	}, tea.Tick(loadingAfter, func(time.Time) tea.Msg { return loadingShowMsg{} }))
+}
+
+// loadingAfter is how long a fetch runs before its pane shows that it is loading, so quick
+// refreshes don't make the ⟳ mark and "loading…" flicker.
+const loadingAfter = time.Second
+
+// loadingShowMsg makes the view render again once a slow fetch should show its loading mark.
+type loadingShowMsg struct{}
+
+// slow reports whether the source's fetch has been running long enough to show as loading.
+func (s *source) slow() bool {
+	return s.loading && time.Since(s.started) >= loadingAfter
 }
 
 func (m *model) tickCmd(key string) tea.Cmd {
@@ -348,6 +361,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case splashMaxMsg:
 		m.splash = false
+		return m, nil
+
+	case loadingShowMsg:
 		return m, nil
 
 	case dataMsg:
@@ -1056,7 +1072,7 @@ func (m *model) frame(i, w, h int) []string {
 	// Title, with a mark while its data is loading.
 	title := m.title(ps)
 	src := m.sources[ps.srcKey]
-	if src != nil && src.loading {
+	if src != nil && src.slow() {
 		title = strings.TrimSpace(title + " ⟳")
 	}
 	var top string
@@ -1077,7 +1093,7 @@ func (m *model) frame(i, w, h int) []string {
 	switch {
 	case src == nil || src.has:
 		c = ps.pane.Content(iw, ih-len(errLines), focused)
-	case ps.err == nil:
+	case ps.err == nil && src.slow():
 		c = content{body: []string{dimStyle.Render("loading…")}, cursor: -1}
 	}
 
@@ -1168,7 +1184,7 @@ func (m *model) statusLine() string {
 	case m.focus >= 0:
 		if src := m.sources[m.panes[m.focus].srcKey]; src != nil {
 			switch {
-			case src.loading:
+			case src.slow():
 				info = dimStyle.Render("loading…")
 			case src.has:
 				s := "updated " + src.updated.Format("15:04:05")

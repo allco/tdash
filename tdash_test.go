@@ -740,7 +740,12 @@ func TestTitleLoadingMarkAndCut(t *testing.T) {
 	m, _ := titleModel(t, `{"layout": {"rows": [{"panes": [
 	  {"type": "markdown", "title": "A long title that will not fit ({{rows}})", "data": {"command": "true"}}
 	]}]}}`)
-	m.sources["pane:0"].loading = true
+	src := m.sources["pane:0"]
+	src.loading, src.started = true, time.Now()
+	if top := ansi.Strip(m.frame(0, 80, 10)[0]); strings.Contains(top, "⟳") {
+		t.Errorf("top border %q shows ⟳ for a fetch that just started", top)
+	}
+	src.started = time.Now().Add(-loadingAfter)
 	top := ansi.Strip(m.frame(0, 20, 10)[0])
 	if w := ansi.StringWidth(top); w != 20 || !strings.Contains(top, "…") {
 		t.Errorf("top border %q (width %d), want it cut to 20 with …", top, w)

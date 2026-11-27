@@ -103,7 +103,7 @@ A title can show values from the pane's data, filled in on every refresh:
 - Numbers show as they are (`3`, `2.5`); arrays and objects show as JSON.
 - Placeholders are checked when the config loads. Anything other than `{{rows}}` or a valid
   `{{$…}}` path is an error, such as `layout.rows[0].panes[1].title: unknown placeholder {{n}}`.
-- The loading mark `⟳` follows the filled title, and a title too long for the border is cut
+- The loading mark `⟳` follows the filled title (it shows once a fetch has run for a second), and a title too long for the border is cut
   with `…`.
 
 ### `table`
