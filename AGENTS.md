@@ -150,7 +150,9 @@ line `tdash vX.Y.Z`, a blank line, then the Markdown notes. Tag with
 `git tag -a vX.Y.Z --cleanup=whitespace -F <file>`, or git drops the `#` headings. The workflow
 publishes the message after its first line as the release notes, adds a "Full Changelog" link, and
 fails if the notes are empty or the tag is lightweight. To fix a release's notes, re-tag the same
-commit with `-f` and `git push -f origin vX.Y.Z`; the workflow then only edits the notes.
+commit with `-f` and `git push -f origin vX.Y.Z`; the release workflow then only edits the notes,
+and `release-notes.yml` re-syncs every tag's notes on each push to `main`. Pushing more than three
+tags at once starts no tag workflows (a GitHub rule), which is handy when fixing old tags.
 
 Open questions for the user are listed in SPEC.md §10.
 

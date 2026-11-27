@@ -1,0 +1,47 @@
+name: Release notes
+
+# Copies each annotated tag's message (after its first line) to its GitHub release as the release
+# notes, where they differ. It runs from main, so it also fixes releases whose tags predate this
+# workflow: re-tag with new notes, push the tags, then push to main or run it by hand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # edit releases
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          git fetch --force --tags origin
+          prev=""
+          for tag in $(git tag -l 'v*' --sort=v:refname); do
+            if [ "$(git cat-file -t "$tag")" = tag ] && gh release view "$tag" >/dev/null 2>&1; then
+              notes=$(git tag -l --format='%(contents:body)' "$tag")
+              if [ -n "$(echo "$notes" | tr -d '[:space:]')" ]; then
+                {
+                  echo "$notes"
+                  if [ -n "$prev" ]; then
+                    printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' "$REPO" "$prev" "$tag"
+                  fi
+                } > notes.md
+                body=$(gh release view "$tag" --json body -q .body)
+                if [ "$body" != "$(cat notes.md)" ]; then
+                  echo "updating $tag"
+                  gh release edit "$tag" --notes-file notes.md
+                fi
+              fi
+            fi
+            prev=$tag
+          done

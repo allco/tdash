@@ -313,6 +313,8 @@ terminal cell, so emoji take two cells as they do in a terminal. The PNGs are st
 
 - `.github/workflows/post-merge.yml` ("Post merge") checks formatting, vets, tests and builds on
   every push to `main`.
+- `.github/workflows/release-notes.yml` copies each annotated tag's notes to its release on every
+  push to `main`.
 - `.github/workflows/release.yml` runs when a semver tag is pushed. It tests, builds for macOS,
   Linux and Windows (amd64 and arm64) with the tag as the version, and creates a GitHub release
   with each binary, an archive per platform (with the README, SPEC and examples) and a
@@ -339,5 +341,7 @@ git push origin v0.1.0
 `--cleanup=whitespace` keeps the Markdown headings; by default git drops lines that start with `#`.
 
 To change the notes of a release that exists, tag the same commit again with new notes and
-force-push the tag (`git tag -fa …`, `git push -f origin v0.1.0`). The workflow then only updates
-the release's notes; it doesn't build or upload anything.
+force-push the tag (`git tag -fa …`, `git push -f origin v0.1.0`). The release workflow then only
+updates the notes; it doesn't build or upload anything. `.github/workflows/release-notes.yml`
+also copies every tag's notes to its release on each push to `main` (or run by hand), which
+covers tags older than this scheme.
