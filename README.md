@@ -324,3 +324,7 @@ To release:
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+Every new version needs release notes on its GitHub release: what changed for users (new
+features, changed behaviour, fixes), not just the list of commits that `--generate-notes` adds.
+Write them on the release page once the workflow has created the release.

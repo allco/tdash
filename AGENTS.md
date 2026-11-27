@@ -142,7 +142,10 @@ Not built yet (see SPEC.md §5.4, §8, §10, §11):
 - links in Markdown can't be selected or opened yet; only table rows have actions
 
 Releases: an annotated `vX.Y.Z` tag (message `tdash vX.Y.Z`) pushed to origin starts the release
-workflow (README, "CI and releases").
+workflow (README, "CI and releases"). **Each new version requires release notes on its GitHub
+release**: a short user-facing summary of what changed (features, behaviour changes, fixes), not
+only the generated commit list. `gh` isn't installed here, so draft the notes and hand them to the
+user to paste on the release page.
 
 Open questions for the user are listed in SPEC.md §10.
 
