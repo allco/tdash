@@ -22,7 +22,7 @@
         "panes": [
           { "type": "markdown", "title": "Status", "data": { "supplier": "status", "select": "$.header" } },
           {
-            "type": "table", "title": "Ongoing work", "span": 2,
+            "type": "table", "title": "Ongoing work ({{rows}})", "span": 2,
             "columns": [
               { "key": "Who" },
               { "key": "Last heard", "title": "Heard" },
@@ -36,7 +36,7 @@
         "height": 1,
         "panes": [
           {
-            "type": "table", "title": "Open stack · enter opens the MR", "span": 2,
+            "type": "table", "title": "Open stack ({{rows}}) · enter opens the MR", "span": 2,
             "columns": [
               { "key": "Part" },
               { "key": "MR" },
